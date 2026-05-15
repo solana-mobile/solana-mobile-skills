@@ -52,6 +52,26 @@ Verify Seeker device ownership by checking for the Seeker Genesis Token (SGT) �
 - "Add SGT verification"
 - "Implement anti-Sybil for Seeker"
 
+### Seeker App Lifecycle (`seeker-app/`)
+
+End-to-end skills for building a Seeker dApp: scaffold, Seeker-specific UX conventions, USDC/SOL payments via MWA, Seed Vault audience boundary, and dApp Store publishing. Complements the MWA skills above.
+
+| Folder | Skill | Description |
+|--------|-------|-------------|
+| `seeker-app/seeker-app-builder` | Router | Assesses project state and routes through scaffold → MWA → tx → UX → publish |
+| `seeker-app/seeker-app-scaffold` | Scaffold | `npm create solana-dapp` / `create-expo-app`, Android toolchain (JDK 17, adb), polyfills, `APP_IDENTITY` / `SOLANA_CHAIN` constants |
+| `seeker-app/seeker-ux` | UX | One-tap approval, batched ixs, haptic ladder, AMOLED palette, 48/56 px tap targets, 120 Hz Reanimated v4 |
+| `seeker-app/solana-pay-mobile` | Payments | SOL/USDC transfers signed via MWA, Solana Pay URL spec, RN-specific gotchas (`Buffer`, `address.toString()`) |
+| `seeker-app/seed-vault` | Seed Vault | Audience-boundary skill — wallet developers only; routes dApp builders back to MWA |
+| `seeker-app/dapp-store-publishing` | Publishing | APK sign (`keytool` + `assembleRelease`), `@solana-mobile/dapp-store-cli`, publisher wallet + App NFT, ProGuard footgun |
+
+**Trigger phrases:**
+- "Build a Seeker app"
+- "Ship to the Solana dApp Store"
+- "Scaffold a Solana Mobile RN app"
+- "Add USDC payments to my Seeker app"
+- "Sign and publish my APK"
+
 ## Installation
 
 Copy the skill folders to your Claude Code skills directory:
@@ -65,6 +85,9 @@ cp -r skr-address-resolution ~/.claude/skills/
 
 # Genesis Token skill
 cp -r genesis-token ~/.claude/skills/
+
+# Seeker App Lifecycle skills
+cp -r seeker-app/* ~/.claude/skills/
 ```
 
 ## Requirements
