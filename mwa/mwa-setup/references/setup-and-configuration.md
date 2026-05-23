@@ -7,10 +7,7 @@ Complete setup guide for Mobile Wallet Adapter integration in React Native Expo 
 ### Required Dependencies
 
 ```bash
-npm install @wallet-ui/react-native-web3js
-npm install @solana/web3.js
-npm install @tanstack/react-query
-npm install react-native-get-random-values
+npm install @wallet-ui/react-native-web3js react-native-quick-crypto @solana/web3.js expo-dev-client
 ```
 
 ### Development Build Requirement
@@ -34,15 +31,23 @@ npx expo run:android
 
 ### Implementation
 
-Add this as the **FIRST import** in `app/_layout.tsx`:
+Create `polyfill.js` at the project root:
 
 ```typescript
-import 'react-native-get-random-values';  // ⚠️ MUST BE FIRST
+import { install } from 'react-native-quick-crypto';
 
-// Then other imports...
-import { Stack } from 'expo-router';
-import { MobileWalletProvider } from '@wallet-ui/react-native-web3js';
-// ...
+install();
+```
+
+Then import it as the **FIRST import** in `index.js`:
+
+```typescript
+import './polyfill';  // ⚠️ MUST BE FIRST
+
+import { registerRootComponent } from 'expo';
+import App from './App';
+
+registerRootComponent(App);
 ```
 
 ### Why This Is Critical
@@ -101,31 +106,24 @@ export const SOLANA_RPC_ENDPOINT =
 In `app/_layout.tsx`:
 
 ```typescript
-import 'react-native-get-random-values'; // ⚠️ MUST BE FIRST
-
 import { Stack } from 'expo-router';
 import { MobileWalletProvider } from '@wallet-ui/react-native-web3js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SOLANA_CLUSTER, SOLANA_RPC_ENDPOINT, APP_IDENTITY } from '@/constants/wallet';
-
-const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const chain = `solana:${SOLANA_CLUSTER}` as const;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <MobileWalletProvider
-        chain={chain}
-        endpoint={SOLANA_RPC_ENDPOINT}
-        identity={APP_IDENTITY}
-      >
-        <Stack>
-          <Stack.Screen name="index" />
-          {/* Other screens */}
-        </Stack>
-      </MobileWalletProvider>
-    </QueryClientProvider>
+    <MobileWalletProvider
+      chain={chain}
+      endpoint={SOLANA_RPC_ENDPOINT}
+      identity={APP_IDENTITY}
+    >
+      <Stack>
+        <Stack.Screen name="index" />
+        {/* Other screens */}
+      </Stack>
+    </MobileWalletProvider>
   );
 }
 ```
@@ -133,7 +131,7 @@ export default function RootLayout() {
 ## Common Setup Issues
 
 ### Issue: "crypto.getRandomValues() not supported"
-**Solution**: Add `import 'react-native-get-random-values';` as FIRST line in `_layout.tsx`
+**Solution**: Install `react-native-quick-crypto`, create `polyfill.js`, and import `./polyfill` first in `index.js`.
 
 ### Issue: Wallet popup doesn't appear
 **Solution**: Run `npx expo prebuild --clean` and rebuild. Ensure you're not using Expo Go.

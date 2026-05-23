@@ -17,13 +17,18 @@ description: Seeker UX conventions for RN dApps. Triggers - "Seeker UX", "add ha
 - iOS UX → these conventions are Seeker (Android, AMOLED, 120 Hz)
 - Generic web design → use a frontend skill
 
+## Platform boundary
+
+- Native MWA is Android-only. Do not design an iOS wallet flow as a direct port.
+- Chrome on Android can support MWA for mobile web/PWA; native Seeker UX should still assume Android app constraints.
+
 ## One-tap approve
 
-Wallet biometric = only confirmation. No `Alert.alert("Are you sure?")` before `transact()`. Long-press confirm OK for destructive only.
+Wallet biometric = only confirmation. No `Alert.alert("Are you sure?")` immediately before wallet approval. Long-press confirm OK for destructive only.
 
 ## Batch ixs
 
-Combine related ixs into one Transaction. Examples: mint+transfer, wrap+swap. Never chain `transact()` calls.
+Combine related ixs into one transaction request. Examples: mint+transfer, wrap+swap. Avoid chaining wallet sessions for a single user action.
 
 ## Haptics
 
@@ -79,17 +84,31 @@ Expo SDK 50+ ships the Worklets Babel plugin by default. Bare RN must add `react
 
 ## RN pitfalls
 
-- `account.address.toString()` only. Bare `{account.address}` = garbled text in `<Text>`.
+- Render wallet addresses as strings. For Wallet UI accounts, prefer `account.address.toBase58()` when available, otherwise `account.address.toString()`. Bare `{account.address}` can produce garbled text in `<Text>`.
 - No `Buffer` in RN. Use `btoa(String.fromCharCode(...arr))` for base64.
-- Polyfill `react-native-get-random-values` = first import in entry file. Wrong order → silent tx failures.
+- `react-native-quick-crypto` polyfill must install before any Solana import. Wrong order → silent tx failures.
+
+## Seeker device signal
+
+Use Platform constants only for UI treatment:
+
+```ts
+import { Platform } from 'react-native';
+
+const isSeekerDevice = Platform.constants.Model === 'Seeker';
+```
+
+This is spoofable. Rewards, claims, and gated access require backend SIWS + Seeker Genesis Token verification.
 
 ## Security floor
 
 - No keys/mnemonics in app code or env.
-- Sign only via MWA (`useMobileWallet` hook or raw `transact()`).
+- Sign only via MWA (`useMobileWallet` hook or direct `transact()` from `@solana-mobile/mobile-wallet-adapter-protocol-web3js`).
 - Privacy policy required for dApp Store. Reuse from web if shared.
 
 ## Refs
 
-- docs.solanamobile.com
+- docs.solanamobile.com/llms.txt
+- docs.solanamobile.com/solana-mobile-stack/mobile-wallet-adapter
+- docs.solanamobile.com/recipes/general/detecting-seeker-users
 - github.com/solana-mobile/mobile-wallet-adapter

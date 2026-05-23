@@ -20,6 +20,18 @@ Verify that a user owns a Seeker device by confirming they possess the Seeker Ge
 - Backend server for verification (SGT check must be server-side)
 - Helius API key for RPC queries
 
+## Lightweight Device Signal
+
+For non-critical UI treatments, a React Native app can check Platform constants:
+
+```typescript
+import { Platform } from 'react-native';
+
+const isSeekerDevice = Platform.constants.Model === 'Seeker';
+```
+
+This can be spoofed. Do not use it for rewards, claims, or gated access. Use the SGT verification flow below when authenticity matters.
+
 ## Two-Step Verification Process
 
 1. **SIWS to prove wallet ownership** — Use Sign-in-with-Solana to prove the user owns the wallet
@@ -60,6 +72,8 @@ async function signSIWSPayload() {
 }
 ```
 
+Use the `@solana-mobile/mobile-wallet-adapter-protocol-web3js` wrapper for direct SIWS sessions. It preserves convenient web3.js types; the base protocol package uses lower-level encoded payloads.
+
 ### Step 2: Backend - Verify SIWS Signature
 
 ```typescript
@@ -81,7 +95,9 @@ async function verifySIWS(signInPayload, signInResult): Promise<boolean> {
 
 ### Step 3: Backend - Check SGT Ownership
 
-See [references/sgt-verification.md](references/sgt-verification.md) for the complete verification script.
+See [references/sgt-verification.md](references/sgt-verification.md) for the complete verification script. Helius `getTokenAccountsByOwnerV2` is the documented RPC route.
+
+SGTs are transferable. For anti-Sybil claims or rewards, track the SGT's unique mint address server-side so one token cannot claim multiple times.
 
 ### Step 4: Backend - Combine Both Checks
 
@@ -107,5 +123,6 @@ npm install @solana/wallet-standard-util @solana/web3.js @solana/spl-token
 
 ## External Documentation
 
-- **Detecting Seeker Users**: https://docs.solanamobile.com/react-native/detecting-seeker-users
+- **Documentation Index**: https://docs.solanamobile.com/llms.txt
+- **Detecting Seeker Users**: https://docs.solanamobile.com/recipes/general/detecting-seeker-users
 - **Phantom SIWS Spec**: https://github.com/phantom/sign-in-with-solana

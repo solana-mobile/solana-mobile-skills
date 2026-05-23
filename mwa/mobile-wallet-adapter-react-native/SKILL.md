@@ -31,7 +31,34 @@ This is the entry point for MWA integration. **Assess what the user needs, then 
 - React Native Expo project
 - Development build (NOT Expo Go - MWA uses native modules)
 - Android development environment
+- Native MWA has full support on Android and no iOS support
 
 ## SDK Used
 
-All sub-skills use `@wallet-ui/react-native-web3js` (Beeman's Wallet UI SDK).
+Default to `@wallet-ui/react-native-web3js` for app-level integration:
+
+- `MobileWalletProvider` wraps the app
+- `useMobileWallet` handles account state, connect/disconnect, message signing, and transactions
+- `react-native-quick-crypto` must install before any Solana imports
+
+Use direct `transact` from `@solana-mobile/mobile-wallet-adapter-protocol-web3js` only when a flow needs lower-level MWA control, such as SIWS, auth-token handling, custom message signing, or custom wallet-submitted transaction batches.
+
+## Current Install Set
+
+```bash
+npm install @wallet-ui/react-native-web3js react-native-quick-crypto @solana/web3.js expo-dev-client
+```
+
+For direct `transact` flows:
+
+```bash
+npm install @solana-mobile/mobile-wallet-adapter-protocol-web3js @solana-mobile/mobile-wallet-adapter-protocol
+```
+
+## Refs
+
+- https://docs.solanamobile.com/llms.txt
+- https://docs.solanamobile.com/get-started/react-native/installation
+- https://docs.solanamobile.com/get-started/react-native/setup
+- https://docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly
+- https://docs.solanamobile.com/get-started/react-native/mobile-wallet-adapter

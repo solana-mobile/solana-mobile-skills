@@ -139,7 +139,7 @@ export function SendSol() {
 
 ### Transaction Pattern
 
-All transactions follow this pattern:
+Wallet UI transactions follow this pattern:
 
 ```typescript
 // 1. Get fresh blockhash
@@ -159,6 +159,10 @@ const signature = await signAndSendTransaction(transaction);
 await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight });
 ```
 
+For direct Mobile Wallet Adapter sessions, use `transact` from `@solana-mobile/mobile-wallet-adapter-protocol-web3js` and call `wallet.signAndSendTransactions` / `wallet.signTransactions` inside the callback. Do not import `transact` from the base protocol package unless you intentionally want lower-level encoded payloads.
+
+Prefer versioned transactions for new code unless the target wallet or program requires legacy transactions.
+
 ## Key Points
 
 1. **Use hook's connection**: Don't create `new Connection()`. Use `connection` from the hook.
@@ -172,6 +176,8 @@ await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight
    // Base64 encoding (if needed)
    const base64 = btoa(String.fromCharCode(...uint8Array));
    ```
+
+5. **Avoid session chaining**: Batch related instructions into one transaction request when one user action needs one approval.
 
 ## Troubleshooting
 
@@ -197,3 +203,8 @@ Usually means the transaction is malformed or blockhash expired. Get a fresh blo
 
 For complete implementation with balance display, explorer links, and more error handling:
 - [references/transaction-signing.md](references/transaction-signing.md)
+
+Official refs:
+- https://docs.solanamobile.com/llms.txt
+- https://docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly
+- https://docs.solanamobile.com/get-started/react-native/mobile-wallet-adapter

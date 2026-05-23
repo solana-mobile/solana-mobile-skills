@@ -24,34 +24,45 @@ Install dependencies, configure crypto polyfills, and set up providers for Mobil
 - React Native Expo project
 - **NOT using Expo Go** (requires development build)
 - Android development environment
+- Native MWA is Android only; do not promise iOS support for this flow
 
 ## Implementation
 
 ### Step 1: Install Dependencies
 
 ```bash
-npm install @wallet-ui/react-native-web3js @solana/web3.js @tanstack/react-query react-native-get-random-values
+npm install @wallet-ui/react-native-web3js react-native-quick-crypto @solana/web3.js expo-dev-client
 ```
 
 ### Step 2: Crypto Polyfill (CRITICAL)
 
 **The crypto polyfill MUST be the VERY FIRST import in the app entry point.**
 
-**Expo Router** (`app/_layout.tsx`):
-```typescript
-import 'react-native-get-random-values'; // MUST BE FIRST
+Create `polyfill.js` at the project root:
 
-import { Stack } from 'expo-router';
-// ... other imports
+```typescript
+import { install } from 'react-native-quick-crypto';
+
+install();
 ```
 
-**React Navigation** (`index.tsx`):
-```typescript
-import 'react-native-get-random-values'; // MUST BE FIRST
+Then import it first in `index.js`:
 
-import '@expo/metro-runtime';
+```typescript
+import './polyfill'; // MUST BE FIRST
+
 import { registerRootComponent } from 'expo';
-// ... other imports
+import App from './App';
+
+registerRootComponent(App);
+```
+
+Set `package.json` main to the new entry point:
+
+```json
+{
+  "main": "./index.js"
+}
 ```
 
 **Why**: Other modules check for `crypto` on import. Wrong order = transactions fail silently.
@@ -91,28 +102,21 @@ export const SOLANA_RPC_ENDPOINT =
 
 Wrap app with `MobileWalletProvider`:
 
-**Expo Router** (`app/_layout.tsx`):
-```typescript
-import 'react-native-get-random-values'; // FIRST
+**Root app component** (`App.tsx`):
 
-import { Stack } from 'expo-router';
+```typescript
 import { MobileWalletProvider } from '@wallet-ui/react-native-web3js';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { APP_IDENTITY, SOLANA_CHAIN, SOLANA_RPC_ENDPOINT } from '@/constants/wallet';
 
-const queryClient = new QueryClient();
-
-export default function RootLayout() {
+export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <MobileWalletProvider
-        chain={SOLANA_CHAIN}
-        endpoint={SOLANA_RPC_ENDPOINT}
-        identity={APP_IDENTITY}
-      >
-        <Stack />
-      </MobileWalletProvider>
-    </QueryClientProvider>
+    <MobileWalletProvider
+      chain={SOLANA_CHAIN}
+      endpoint={SOLANA_RPC_ENDPOINT}
+      identity={APP_IDENTITY}
+    >
+      {/* app content */}
+    </MobileWalletProvider>
   );
 }
 ```
@@ -125,6 +129,20 @@ npx expo run:android
 ```
 
 **Required** because MWA uses native Android modules not included in Expo Go.
+
+## Direct MWA Sessions
+
+Prefer Wallet UI for normal connect/disconnect and transaction hooks. If the feature needs SIWS, direct authorization, message signing, or custom transaction sessions, use the web3.js wrapper:
+
+```bash
+npm install @solana-mobile/mobile-wallet-adapter-protocol-web3js @solana-mobile/mobile-wallet-adapter-protocol
+```
+
+```typescript
+import { transact } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js';
+```
+
+Do not import `transact` from the base protocol package unless you intentionally want base64 payload handling instead of web3.js types.
 
 ## Troubleshooting
 
@@ -145,3 +163,11 @@ npx expo run:android
 After setup is complete:
 - Add wallet connection → Use `mwa-connection` skill
 - Add transactions → Use `mwa-transactions` skill
+
+## Refs
+
+- https://docs.solanamobile.com/llms.txt
+- https://docs.solanamobile.com/get-started/react-native/installation
+- https://docs.solanamobile.com/get-started/react-native/setup
+- https://docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly
+- https://docs.solanamobile.com/solana-mobile-stack/mobile-wallet-adapter

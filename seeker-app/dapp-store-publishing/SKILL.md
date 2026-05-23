@@ -48,6 +48,32 @@ Node 18+.
 
 **APK only.** `.aab` rejected.
 
+### Expo / EAS
+
+For Expo apps, add a dApp Store profile:
+
+```json
+{
+  "build": {
+    "dapp-store": {
+      "android": {
+        "buildType": "apk"
+      }
+    }
+  }
+}
+```
+
+Then build:
+
+```bash
+eas build --platform android --profile dapp-store
+# or local:
+eas build --platform android --profile dapp-store --local
+```
+
+EAS can manage the keystore, but the dApp Store key must be separate from a Google Play key.
+
 ### Keystore (once)
 
 ```bash
@@ -136,11 +162,24 @@ Same command. Portal matches by package name. **Bump `versionCode`** every relea
 | `minifyEnabled true` breaks MWA / reflective native modules in release | Default to `false`. If enabling, add `-keep` rules in `proguard-rules.pro` for `com.solana.mobilewalletadapter.**`, `com.solanamobile.**`, and any other reflective deps. Test release build before submission. |
 | App crashes on launch only in release | Almost always missing ProGuard rules. Disable `minifyEnabled` to confirm. |
 | Package name mismatch between APK + portal | The portal infers app identity from APK package name; must match the `expo.android.package` set at scaffold. |
+| `No space left on device` in release build | Free disk / clear local Gradle and Android CMake build caches, then rerun. Release native builds need much more space than debug builds. |
+
+## PWA / TWA route
+
+Only use Bubblewrap/TWA if the user is intentionally publishing a web app as a wrapped PWA. Native React Native apps should follow the Expo/native APK path above.
+
+For TWA apps:
+
+- create a valid web manifest
+- build with Bubblewrap
+- publish Digital Asset Links at `/.well-known/assetlinks.json`
 
 ## Refs
 
+- docs.solanamobile.com/llms.txt
 - docs.solanamobile.com/dapp-store/intro
 - docs.solanamobile.com/dapp-store/publishing-cli
 - docs.solanamobile.com/dapp-store/build-and-sign-an-apk
+- docs.solanamobile.com/recipes/general/publishing-a-web-app
 - docs.solanamobile.com/dapp-store/publisher-policy
 - github.com/solana-mobile/dapp-publishing

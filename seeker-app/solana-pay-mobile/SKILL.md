@@ -20,7 +20,7 @@ description: SOL/USDC transfers in RN signed via MWA. Triggers - "add USDC payme
 
 ## Prereq
 
-MWA setup done via `mwa-setup` (sibling): `@wallet-ui/react-native-web3js`, `react-native-get-random-values` polyfill first import, `MobileWalletProvider` wired. If not → do that first.
+MWA setup done via `mwa-setup` (sibling): `@wallet-ui/react-native-web3js`, `react-native-quick-crypto` installed through a first-import `polyfill.js`, `expo-dev-client`, and `MobileWalletProvider` wired. If not → do that first.
 
 ## Mints
 
@@ -86,13 +86,13 @@ function PayButton() {
 }
 ```
 
-- `account.address` = `PublicKey`. Display: `account.address.toString()`.
+- `account.address` = `PublicKey`-like object. Display with `account.address.toBase58?.() ?? account.address.toString()`.
 - `connection` from the hook. Don't `new Connection()`.
 - `signAndSendTransaction(tx)` = singular, returns `string`.
 
 ## Raw API (advanced)
 
-Skip the hook for SIWS or remote scenarios:
+Skip the hook for SIWS or custom wallet sessions:
 
 ```ts
 import { transact } from '@solana-mobile/mobile-wallet-adapter-protocol-web3js';
@@ -121,7 +121,7 @@ Incoming: parse → build tx → MWA sign.
 
 | Issue | Fix |
 |-------|-----|
-| Garbled address text | `account.address.toString()`, never `{account.address}` directly |
+| Garbled address text | `account.address.toBase58?.() ?? account.address.toString()`, never `{account.address}` directly |
 | `Buffer doesn't exist` in RN | `btoa(String.fromCharCode(...uint8Array))` instead of `Buffer.from(...).toString('base64')` |
 | Tx fails to unfunded recipient | Some wallets reject. Test with known funded addresses first. |
 | Blockhash expired | Fresh blockhash per tx. Rebuild on retry. |
@@ -134,5 +134,7 @@ Never ship public RPC for mainnet. Use Helius/QuickNode/Triton via backend-issue
 ## Refs
 
 - docs.solanapay.com
+- docs.solanamobile.com/llms.txt
+- docs.solanamobile.com/get-started/react-native/invoke-mwa-sessions-directly
 - Sibling: `../mwa/mwa-transactions/`
 - github.com/solana-mobile/mobile-wallet-adapter

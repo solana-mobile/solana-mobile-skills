@@ -14,7 +14,7 @@ description: Scaffold Solana Mobile RN app. Triggers - "create Solana Mobile app
 ## Not
 
 - Project scaffolded → `mwa-setup` (sibling)
-- iOS-only → Solana Mobile = Android
+- iOS-only → native MWA is Android only
 - Web app → `gh:solana-foundation/templates/kit/nextjs` instead
 
 ## Prereq
@@ -53,7 +53,7 @@ cd <name> && npm install && npm run android
 ## Config
 
 - `app.json` → `expo.android.package` = final reverse-DNS id. Must match dApp Store entry.
-- `android/app/build.gradle` → `minSdkVersion 26` (MWA req).
+- `expo-build-properties` or `android/app/build.gradle` → `minSdkVersion 26` (MWA req).
 
 ## Rule
 
@@ -68,22 +68,24 @@ npx expo run:android
 
 A crypto polyfill **MUST be the very first import** in app entry. Other modules check `crypto` on import — wrong order = silent tx failures.
 
-Pick one:
-- `react-native-get-random-values` (canonical; what the `mwa-setup` skill installs)
-- `expo-crypto`'s `getRandomValues` via `src/polyfills.ts` (default in some Solana Mobile Expo templates)
+Current Solana Mobile React Native docs use `react-native-quick-crypto`:
 
-Expo Router (`app/_layout.tsx`):
+`polyfill.js`:
 
 ```ts
-import 'react-native-get-random-values';  // FIRST
-import { Stack } from 'expo-router';
+import { install } from 'react-native-quick-crypto';
+
+install();
 ```
 
-React Navigation (`index.tsx`):
+`index.js`:
 
 ```ts
-import 'react-native-get-random-values';  // FIRST
+import './polyfill';  // FIRST
 import { registerRootComponent } from 'expo';
+import App from './App';
+
+registerRootComponent(App);
 ```
 
 ## SDK choice
@@ -91,8 +93,10 @@ import { registerRootComponent } from 'expo';
 `@wallet-ui/react-native-web3js` (Beeman's Wallet UI SDK) = official recommendation. Provides `useMobileWallet` hook + `MobileWalletProvider`. Wraps the raw `@solana-mobile/mobile-wallet-adapter-protocol-web3js`.
 
 ```bash
-npm install @wallet-ui/react-native-web3js @solana/web3.js @tanstack/react-query react-native-get-random-values
+npm install @wallet-ui/react-native-web3js react-native-quick-crypto @solana/web3.js expo-dev-client
 ```
+
+Use lower-level `@solana-mobile/mobile-wallet-adapter-protocol-web3js` only for direct `transact` flows such as SIWS or custom transaction sessions.
 
 ## Constants
 
@@ -124,7 +128,22 @@ export const SOLANA_RPC_ENDPOINT = process.env.EXPO_PUBLIC_SOLANA_RPC_ENDPOINT |
 | `Secure context (https)` error from MWA | `rm -rf node_modules/@solana-mobile/mobile-wallet-adapter-protocol/lib/esm` then rebuild |
 | Silent tx failures, `crypto.getRandomValues` not found | Polyfill not first import (see above) |
 
+## Seeker detection
+
+For non-critical UI treatments, React Native Platform constants can identify Seeker devices:
+
+```ts
+import { Platform } from 'react-native';
+
+const isSeekerDevice = Platform.constants.Model === 'Seeker';
+```
+
+This is spoofable. Use SIWS + Seeker Genesis Token verification on the backend for rewards, claims, or gating.
+
 ## Refs
 
+- docs.solanamobile.com/llms.txt
 - docs.solanamobile.com/get-started/react-native/create-solana-mobile-app
+- docs.solanamobile.com/get-started/react-native/installation
 - docs.solanamobile.com/get-started/react-native/setup
+- docs.solanamobile.com/recipes/general/detecting-seeker-users
