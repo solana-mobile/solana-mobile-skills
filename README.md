@@ -1,6 +1,6 @@
 # Solana Mobile Dev Skills
 
-Claude Code skills for building Solana Mobile apps.
+Agent skills for Solana Mobile development (Claude Code, Codex, OpenCode, Cursor, Gemini, etc).
 
 ## Available Skills
 
