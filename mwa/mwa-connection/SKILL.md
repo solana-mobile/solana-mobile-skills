@@ -28,7 +28,7 @@ Add connect/disconnect wallet functionality using Mobile Wallet Adapter.
 ```typescript
 import { useMobileWallet } from '@wallet-ui/react-native-web3js';
 
-const { account, connect, disconnect, connected } = useMobileWallet();
+const { account, connect, disconnect } = useMobileWallet();
 ```
 
 | Property | Type | Description |
@@ -36,7 +36,7 @@ const { account, connect, disconnect, connected } = useMobileWallet();
 | `account` | `{ address, publicKey }` | Connected account (null if disconnected) |
 | `connect()` | `async () => Account` | Triggers wallet picker, returns account |
 | `disconnect()` | `async () => void` | Disconnects wallet |
-| `connected` | `boolean` | Connection state |
+| `account` truthiness | `boolean` | Connection state |
 
 ## Implementation
 
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
 
 ### Display Wallet Address
 
-**IMPORTANT**: Always use `publicKey.toString()`, not `address` directly.
+**IMPORTANT**: Always render a string, not the address object directly.
 
 ```typescript
 import { Text } from 'react-native';
@@ -90,7 +90,10 @@ export function WalletAddress() {
   if (!account) return null;
 
   // Truncate for display
-  const address = account.address.toString();
+  const address =
+    typeof account.address.toBase58 === 'function'
+      ? account.address.toBase58()
+      : account.address.toString();
   const truncated = `${address.slice(0, 4)}...${address.slice(-4)}`;
 
   return <Text>{truncated}</Text>;
@@ -110,8 +113,8 @@ export function ExistingLoginButton() {
   const handleLogin = async () => {
     try {
       const account = await connect();
-      // account.address - PublicKey object
-      // account.address.toString() - Base58 string
+      // account.address - PublicKey-like object
+      // account.address.toBase58() / toString() - Base58 string
       // Continue with existing auth logic...
     } catch (error) {
       console.error('MWA connection failed:', error);
@@ -126,7 +129,7 @@ export function ExistingLoginButton() {
 
 1. **Session Persistence**: SDK automatically stores auth token. App will auto-reconnect on restart.
 
-2. **Address Display**: Always use `account.address.toString()` — using `account.address` directly may show garbled text.
+2. **Address Display**: Always convert `account.address` to a string — using `account.address` directly may show garbled text.
 
 3. **Error Handling**: Wrap `connect()` in try-catch. User can cancel the wallet picker.
 
@@ -147,8 +150,18 @@ If address shows like "+9pgyt LK...MIiSdpI=":
 <Text>{account.address}</Text>
 
 // CORRECT
-<Text>{account.address.toString()}</Text>
+<Text>{account.address.toBase58?.() ?? account.address.toString()}</Text>
 ```
+
+## SIWS / Authenticated Connection
+
+For Seeker Genesis Token verification or backend login, use Sign-In with Solana. If `useMobileWallet().signIn` is not sufficient for your flow, use direct `transact` from `@solana-mobile/mobile-wallet-adapter-protocol-web3js` and pass `sign_in_payload` to `wallet.authorize`.
+
+Verify the `sign_in_result` on the backend with `@solana/wallet-standard-util`; do not trust a client-only signature check for gated rewards.
+
+## Platform Boundary
+
+MWA is an Android-native flow. It is not supported on iOS.
 
 ## Next Steps
 
