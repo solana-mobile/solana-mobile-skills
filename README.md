@@ -9,6 +9,7 @@ supports.
 
 | Skill | What it covers |
 | --- | --- |
+| [`integration-privy`](skills/integration-privy/SKILL.md) | Privy authentication over Mobile Wallet Adapter, via Sign-In-With-Solana |
 | [`seeker-domains`](skills/seeker-domains/SKILL.md) | `.skr` domain resolution in both directions, with server and client integration |
 | [`seeker-genesis-token`](skills/seeker-genesis-token/SKILL.md) | Seeker device ownership via SGT verification and Sign-in-with-Solana |
 | [`solana-mobile`](skills/solana-mobile/SKILL.md) | Project scaffolding, templates, emulators, development builds, toolchain checks |
@@ -17,6 +18,9 @@ supports.
 Each skill is a self-contained directory: a `SKILL.md` with the procedure, and `references/`
 with detail the agent loads only when it needs it. That keeps the up-front context cost small
 while the long-form material stays available.
+
+Skills covering a third-party service are prefixed `integration-`, so they group together in
+a listing and stay distinguishable from the first-party ones.
 
 ## Install
 
@@ -60,6 +64,7 @@ these:
 - "Send SOL from my React Native app"
 - "Gate this screen to Seeker owners"
 - "Show `.skr` names instead of wallet addresses"
+- "Add Privy login to my Solana mobile app"
 
 In Claude Code you can also invoke one directly, for example `/solana-mobile-wallet`.
 
