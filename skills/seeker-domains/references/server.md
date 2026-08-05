@@ -1,8 +1,12 @@
-# Backend Implementation Reference
+# Server implementation reference
 
-Complete Express API implementation for .skr domain resolution using `@onsol/tldparser`.
+Express implementation of `.skr` resolution using `@onsol/tldparser`. Adapt the routing to
+whatever framework the project already uses — see [Other frameworks](#other-frameworks). The
+resolution logic itself is framework-agnostic.
 
-## Full Backend Code
+`.skr` names live on Solana **mainnet**, whatever cluster the app targets.
+
+## Full Express code
 
 ```typescript
 // backend/src/index.ts
@@ -12,8 +16,11 @@ import { TldParser } from '@onsol/tldparser';
 import cors from 'cors';
 
 const app = express();
-const PORT = 3000;
-const RPC_ENDPOINT = 'https://api.mainnet-beta.solana.com';
+const PORT = Number(process.env.PORT ?? 3000);
+
+// Public endpoints are rate-limited and will not survive resolving a list view. Point this at
+// a dedicated provider in production, and keep the key server-side.
+const RPC_ENDPOINT = process.env.SOLANA_MAINNET_RPC_URL ?? 'https://api.mainnet-beta.solana.com';
 
 // Initialize Solana connection and parser
 const connection = new Connection(RPC_ENDPOINT);
@@ -134,14 +141,45 @@ app.listen(PORT, '0.0.0.0', () => {
 }
 ```
 
-## Key Implementation Notes
+## Key implementation notes
 
-1. **RPC Endpoint**: Uses public Solana mainnet endpoint. For production, use a dedicated RPC provider (Helius, QuickNode) for better performance and rate limits.
+1. **RPC endpoint**: the public mainnet endpoint is fine for development. It will not survive a
+   list view that resolves many addresses — use a dedicated provider in production and keep
+   the key in server-side environment variables only.
 
-2. **Domain Lookup**: `parser.getOwnerFromDomainTld(domain)` returns the wallet address that owns the domain. Pass domain name WITHOUT .skr
+2. **Forward lookup**: `parser.getOwnerFromDomainTld(name)` takes the name **without** the
+   `.skr` suffix. Passing `alice.skr` returns nothing, which looks like "unregistered" rather
+   than like a bug — strip the suffix before calling.
 
-3. **Reverse Lookup**: `parser.getParsedAllUserDomainsFromTld(publicKey, 'skr')` returns ALL .skr domains owned by an address. Use the first one found.
+3. **Reverse lookup**: `parser.getParsedAllUserDomainsFromTld(publicKey, 'skr')` returns **all**
+   `.skr` names owned by an address, in no meaningful order. Sort before taking one, or the
+   displayed name will change between calls for multi-domain owners.
 
-4. **Error Handling**: Return 404 for "not found" cases, 400 for invalid input, 500 for server errors.
+4. **Error handling**: 400 for invalid input, 404 for a genuine "no domain registered", 503 for
+   RPC failures. Do not collapse RPC failures into 404 — an outage would then look like every
+   user having no name.
 
-5. **CORS**: Enabled for all origins ONLY in dev mode to allow mobile app requests. Restrict in production if needed.
+5. **Validate before calling RPC**: reject malformed base58 addresses and non-`.skr` domains up
+   front so bad input does not consume RPC quota.
+
+6. **CORS**: open CORS is for local development. Restrict `origin` to known callers before
+   deploying.
+
+7. **Cache**: names change rarely. A short-TTL in-memory cache, keyed on the address or name,
+   removes most repeated RPC calls — this is the main reason to proxy rather than resolve from
+   the client.
+
+## Other frameworks
+
+Only the routing changes; `TldParser` usage is identical.
+
+| Framework | Where the routes go |
+| --- | --- |
+| Fastify | `fastify.post('/api/resolve-domain', handler)` |
+| NestJS | A controller plus an injectable service holding the parser |
+| Hono | `app.post('/api/resolve-domain', handler)` |
+| Koa | Router middleware |
+| Next.js | Route handlers at `app/api/resolve-domain/route.ts` |
+
+Construct the `Connection` and `TldParser` **once** at module scope, not per request. Building
+them per request adds latency and, on some providers, trips connection limits.
