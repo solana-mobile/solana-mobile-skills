@@ -216,6 +216,7 @@ npx solana-mobile@latest create /tmp/reference-app --template expo-kit-minimal -
 ## Related skills
 
 - `solana-mobile` — project setup, templates, emulators, development builds
+- `integration-privy` — add Privy accounts and sessions on top of this wallet connection
 - `seeker-genesis-token` — verify Seeker device ownership after connecting
 - `seeker-domains` — display `.skr` names instead of raw addresses
 
