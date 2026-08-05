@@ -26,7 +26,9 @@ Create a custom hook to handle API calls to the backend:
 // hooks/use-domain-lookup.ts
 import { useState } from 'react';
 
-const API_BASE_URL = 'http://10.0.2.2:3000'; // Android emulator localhost
+// 10.0.2.2 is the Android emulator's alias for the host machine's localhost.
+// Set EXPO_PUBLIC_API_URL per environment rather than committing either value.
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000';
 
 interface DomainLookupResult {
   address?: string;
@@ -111,27 +113,25 @@ export function useDomainLookup() {
 // app/index.tsx - Main screen showing personalized welcome
 import { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
-import { useMobileWalletAdapter } from '@wallet-ui/react-native-web3js';
+import { useMobileWallet } from '@wallet-ui/react-native-kit';
 import { useDomainLookup } from '../hooks/use-domain-lookup';
 import { ellipsify } from '../utils/ellipsify';
 
 export default function HomeScreen() {
-  const { account } = useMobileWalletAdapter();
+  const { account } = useMobileWallet();
   const { resolveAddress, loading } = useDomainLookup();
   const [displayName, setDisplayName] = useState<string>('');
 
   useEffect(() => {
-    if (account?.publicKey) {
-      // Try to get user's .skr domain
-      resolveAddress(account.publicKey.toBase58()).then((result) => {
-        if (result.domain) {
-          setDisplayName(result.domain);
-        } else {
-          // Fallback to truncated address
-          setDisplayName(ellipsify(account.publicKey.toBase58()));
-        }
-      });
-    }
+    if (!account) return;
+
+    // On the kit stack `address` is already a string. On the web3.js stack it is a
+    // PublicKey, so call .toString() there.
+    const address = account.address.toString();
+
+    resolveAddress(address).then((result) => {
+      setDisplayName(result.domain ?? ellipsify(address));
+    });
   }, [account]);
 
   return (
@@ -242,14 +242,14 @@ export function ellipsify(str: string, len = 4): string {
 
 ## Key Implementation Notes
 
-1. **API URL**: Use `http://10.0.2.2:3000` for Android emulator (maps to host's localhost). For physical devices, use your computer's IP address.
+1. **API URL**: `http://10.0.2.2:3000` reaches the host machine from an Android emulator. Physical devices need the host's LAN IP. Read it from `EXPO_PUBLIC_API_URL` instead of committing either value.
 
-2. **Caching**: Consider caching resolved domains to avoid repeated API calls for the same addresses.
+2. **Caching**: Cache resolved domains. `@tanstack/react-query` with a long `staleTime` is enough — names change rarely, and a list view otherwise re-resolves the same addresses on every render pass.
 
-3. **Error Handling**: Always provide fallback to truncated addresses when domain resolution fails.
+3. **Error Handling**: Always fall back to a truncated address. A failed lookup should degrade to something readable, never to a blank or a permanent spinner.
 
-4. **Loading States**: Show loading indicators during API calls for better UX.
+4. **Loading States**: Show a loading indicator, but render the truncated address underneath rather than an empty string, so the UI never shows a nameless user.
 
-5. **Validation**: The backend validates input, but frontend validation improves UX by catching errors early.
+5. **Validation**: The backend validates input; validating on the client too avoids a round trip for obviously malformed input.
 
-6. **Mobile Wallet Adapter**: Uses `@wallet-ui/react-native-web3js` which provides `useMobileWalletAdapter()` hook with `account`, `connect()`, and `disconnect()` methods.
+6. **Wallet hook**: The hook is `useMobileWallet()`, from `@wallet-ui/react-native-kit` or `@wallet-ui/react-native-web3js` depending on the stack. There is no `useMobileWalletAdapter` export. On the kit stack `account.address` is a string; on web3.js it is a `PublicKey` needing `.toString()`. See the `solana-mobile-wallet` skill.
