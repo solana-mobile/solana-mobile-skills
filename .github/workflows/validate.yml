@@ -1,0 +1,36 @@
+name: Validate skills
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The reference validator from the Agent Skills standard. Checks frontmatter, the name
+      # pattern, and that each skill's name matches its directory. Pinned so a release cannot
+      # turn an unrelated PR red; bump it deliberately.
+      - name: Validate against the Agent Skills spec
+        run: |
+          rc=0
+          for skill in skills/*/; do
+            if npx -y skills-ref@0.1.5 validate "$skill"; then
+              echo "ok    $skill"
+            else
+              rc=1
+            fi
+          done
+          exit $rc
+
+      # skills-ref does not check links. See the comment in the script for why that matters.
+      - name: Check relative links
+        run: ./scripts/check-links.sh

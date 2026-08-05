@@ -114,10 +114,27 @@ duplicating it.
 
 ## Contributing
 
-Skill content should stay portable across agents:
+Two checks run in CI, and both run locally. Validate against the
+[Agent Skills spec](https://agentskills.io/specification) with the standard's own reference
+validator:
 
-- Frontmatter carries `name` and `description` only, and `name` must match the directory name
-- Relative links only, never pointing outside the skill's own directory
+```bash
+for skill in skills/*/; do npx -y skills-ref@0.1.5 validate "$skill"; done
+```
+
+Then check that every relative link resolves and stays inside its skill directory, which
+`skills-ref` does not cover:
+
+```bash
+./scripts/check-links.sh
+```
+
+Beyond what those enforce, skill content should stay portable across agents:
+
+- Frontmatter carries `name` and `description`; `name` must match the directory name
+- Relative links only, never pointing outside the skill's own directory — a skill directory is
+  the unit of distribution, so an escaping link breaks once the skill is installed alone
 - No host-specific tool names in the prose — describe the action, not the tool
+- Keep `SKILL.md` under 500 lines and push detail into `references/`, so activation stays cheap
 
 Issues and pull requests welcome. Prompts always have room to improve.
