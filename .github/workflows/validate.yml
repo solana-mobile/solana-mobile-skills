@@ -34,3 +34,11 @@ jobs:
       # skills-ref does not check links. See the comment in the script for why that matters.
       - name: Check relative links
         run: ./scripts/check-links.sh
+
+      # The repo is also an Agent Plugin (agent-plugins.org): plugin.json plus the skills/
+      # directory. The schema URL is versioned and immutable, so fetching it live is stable;
+      # ajv-cli is pinned for the same reason skills-ref is.
+      - name: Validate against the Agent Plugins spec
+        run: |
+          curl -sfL https://agent-plugins.org/schemas/1.0.0/plugin.schema.json -o /tmp/plugin.schema.json
+          npx -y ajv-cli@5 validate --spec=draft2020 -s /tmp/plugin.schema.json -d plugin.json

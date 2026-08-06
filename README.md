@@ -5,6 +5,10 @@ Agent skills for building Solana apps on Android with Expo and React Native. The
 work with Claude Code, Codex, OpenCode, Cline, Amp, and the other agents the installer below
 supports.
 
+The repository is also packaged as an [Agent Plugin](https://agent-plugins.org): the root
+[`plugin.json`](plugin.json) manifest plus the `skills/` directory make it a portable plugin
+that compatible clients can discover and load directly.
+
 ## Skills
 
 | Skill | What it covers |
@@ -119,7 +123,7 @@ duplicating it.
 
 ## Contributing
 
-Two checks run in CI, and both run locally. Validate against the
+Three checks run in CI, and all of them run locally. Validate against the
 [Agent Skills spec](https://agentskills.io/specification) with the standard's own reference
 validator:
 
@@ -132,6 +136,14 @@ Then check that every relative link resolves and stays inside its skill director
 
 ```bash
 ./scripts/check-links.sh
+```
+
+CI also validates [`plugin.json`](plugin.json) against the
+[Agent Plugins schema](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json). To run
+that locally:
+
+```bash
+curl -sfL https://agent-plugins.org/schemas/1.0.0/plugin.schema.json -o /tmp/plugin.schema.json && npx -y ajv-cli@5 validate --spec=draft2020 -s /tmp/plugin.schema.json -d plugin.json
 ```
 
 Beyond what those enforce, skill content should stay portable across agents:
