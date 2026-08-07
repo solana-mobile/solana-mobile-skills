@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "Solana Mobile",
+    "url": "https://solanamobile.com"
+  },
+  "description": "Agent skills for building Solana apps on Android with Expo and React Native.",
+  "keywords": ["android", "expo", "mobile-wallet-adapter", "react-native", "seeker", "solana"],
+  "name": "solana-mobile-dev-skill",
+  "repository": "https://github.com/solana-mobile/solana-mobile-dev-skill"
+}
