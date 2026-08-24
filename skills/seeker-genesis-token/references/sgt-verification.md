@@ -7,6 +7,9 @@ Server-side only. See the parent skill for why, and for the SIWS half of the che
 Three properties of a Token-2022 mint must **all** hold. Checking fewer is not a partial
 check — it is a bypass, since any of them can be forged in isolation by an unrelated token.
 
+These identify the mint. They say nothing about who holds it, so they are necessary but not
+sufficient — see [the wallet must actually hold the token](#the-wallet-must-actually-hold-the-token).
+
 | Property | Expected value |
 | --- | --- |
 | Mint authority | `GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4` |
@@ -82,6 +85,26 @@ multi-account requests.
 Returning the **mint address** rather than a boolean is deliberate: the mint identifies the
 device, which is what anti-Sybil logic needs to record. See the parent skill.
 
+## The wallet must actually hold the token
+
+Both variants filter out token accounts with `amount === '0'` before collecting mints. This is
+not defensive noise — omitting it is a verification bypass.
+
+Transferring an SGT out of a wallet does not close the source Associated Token Account. The ATA
+stays open forever with `amount: "0"`, and `getTokenAccountsByOwner` keeps returning it. Since
+`findSgtMint` validates properties of the **mint** and never touches the balance, an unfiltered
+list makes every wallet that has *ever* held an SGT verify as a current holder, permanently.
+
+SGTs do move between wallets in practice, so these stale accounts are common rather than
+hypothetical. The same filter also covers revocation: the mint carries a permanent delegate and
+a close authority, so an SGT can be burned out of a wallet, leaving identical zero-balance
+residue.
+
+**Do not additionally reject frozen accounts.** A legitimately held SGT sits in a *frozen* ATA —
+Solana Mobile holds the freeze authority and re-freezes on arrival, which is what stops holders
+from moving the token themselves. Treating `state === 'frozen'` as suspicious rejects every real
+Seeker owner. The balance is the discriminator; the freeze state is not.
+
 ## Variant 1: standard RPC
 
 Works with any Solana RPC, no API key. Suitable when wallets hold a modest number of tokens.
@@ -98,6 +121,7 @@ async function checkWalletForSGT(walletAddress, rpcUrl) {
   )
 
   const mintPubkeys = tokenAccounts
+    .filter((entry) => entry.account.data.parsed?.info?.tokenAmount?.amount !== '0')
     .map((entry) => entry.account.data.parsed?.info?.mint)
     .filter(Boolean)
     .map((mint) => new PublicKey(mint))
@@ -154,6 +178,7 @@ async function checkWalletForSGT(walletAddress, heliusRpcUrl) {
   } while (paginationKey)
 
   const mintPubkeys = accounts
+    .filter((entry) => entry?.account?.data?.parsed?.info?.tokenAmount?.amount !== '0')
     .map((entry) => entry?.account?.data?.parsed?.info?.mint)
     .filter(Boolean)
     .map((mint) => new PublicKey(mint))
