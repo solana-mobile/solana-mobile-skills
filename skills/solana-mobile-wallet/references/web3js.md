@@ -75,7 +75,7 @@ const { account, connect, disconnect, connection, signAndSendTransaction } = use
 | `signAndSendTransaction` | `(tx, minContextSlot: number) => Promise<SignatureBytes>` | Second argument required |
 | `signTransaction` | `(tx) => Promise<tx>` | Sign without broadcasting |
 | `signMessage` | `(msg: Uint8Array) => Promise<Uint8Array>` | |
-| `signIn` | `(payload) => Promise<SignInOutput>` | |
+| `signIn` | `(payload) => Promise<SignInOutput>` | See [Sign-in with Solana](#sign-in-with-solana) |
 
 There is **no `connected` boolean**. Derive it with `const connected = !!account`.
 
@@ -187,6 +187,19 @@ const decoded = toUint8Array(encoded)
 
 Avoid `btoa(String.fromCharCode(...bytes))`. Spreading a large array into arguments throws
 `RangeError: Maximum call stack size exceeded`.
+
+## Sign-in with Solana
+
+`signIn` behaves the same here as on kit: it authorizes and proves wallet ownership in one round
+trip. The payload and the rules around it are identical across both stacks, so
+[kit.md](kit.md#sign-in-with-solana) is the full account — only the imports differ.
+
+The part that does not change with the stack: **as soon as a backend grants anything based on
+the result, the minimal payload is not enough.** Without a server-issued, single-use `nonce` the
+signature is replayable, and without a `domain` it could have been farmed by another site. Build
+the full payload — `domain`, `nonce`, `issuedAt`, `expirationTime`, `uri`, `version` — and
+verify the signature server-side against the address that signed. The `seeker-genesis-token`
+skill covers the verification half.
 
 ## Migrating to kit
 

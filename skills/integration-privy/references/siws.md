@@ -122,9 +122,55 @@ await fetch('https://api.myapp.com/claim', {
 Fetch a token per request. It is short-lived and the SDK refreshes it on demand, so a cached
 copy expires mid-session.
 
-On the server, verify with Privy's server SDK, or against Privy's JWKS if the stack has no
-Node SDK. Verification yields the Privy user ID; read the wallet address from the verified
-user's linked accounts rather than from the request body.
+### Verify the token, and pin who it was issued for
+
+Privy access tokens are ES256 JWTs. The server SDK runs the whole check and is the right
+default:
+
+```ts
+import { PrivyClient } from '@privy-io/node'
+
+const privy = new PrivyClient({
+  appId: process.env.PRIVY_APP_ID,
+  appSecret: process.env.PRIVY_APP_SECRET,
+})
+
+const claims = await privy.utils().auth().verifyAccessToken(token)
+```
+
+It resolves the app's JWKS for you and checks the audience against the `appId` you constructed
+it with.
+
+Without a Node SDK, verify against Privy's JWKS and pass `issuer` and `audience` explicitly:
+
+```ts
+import * as jose from 'jose'
+
+const jwks = jose.createRemoteJWKSet(
+  new URL(`https://api.privy.io/v1/apps/${process.env.PRIVY_APP_ID}/jwks.json`),
+)
+
+const { payload } = await jose.jwtVerify(token, jwks, {
+  algorithms: ['ES256'],
+  audience: process.env.PRIVY_APP_ID,
+  issuer: 'privy.io',
+})
+```
+
+`createRemoteJWKSet` caches the fetch and re-fetches on an unknown key ID, so signing-key
+rotation does not need a deploy. The dashboard also exposes a single static verification key
+under **Configuration > App settings**, usable via `jose.importSPKI(key, 'ES256')` in place of
+`jwks` — but pin it only if you would rather redeploy than allow an outbound call to Privy.
+
+**A valid signature is not proof the token was issued to you.** Privy mints tokens for every app
+on the platform, and creating an app takes a minute. Check the signature without pinning
+`audience` to your own app ID and a token minted for an attacker's Privy app authenticates
+against your server — the signature is genuine, it was simply never issued for you. `audience`
+is the claim that makes this authentication rather than a well-formedness check. Pin `issuer`
+and `algorithms` in the same breath.
+
+Verification yields the Privy user ID. Read the wallet address from the verified user's linked
+accounts rather than from the request body.
 
 Taking the address from the request body instead is the same class of bug the
 `seeker-genesis-token` skill covers in detail: a caller supplies someone else's address
