@@ -27,6 +27,9 @@ backend when you want:
   re-resolving the same addresses.
 - **Batch lookups.** Resolving a whole friend list in one request beats N round trips from a
   phone.
+- **`getProgramAccounts` access.** Reverse lookup needs it, and plenty of providers disable or
+  heavily rate-limit the method. One server-side endpoint against a provider you have checked
+  beats discovering the restriction on user devices.
 
 Direct client-side resolution against a public RPC is reasonable for a prototype or a
 low-traffic app. Public endpoints are rate-limited, so it will not survive a list view that
@@ -52,7 +55,38 @@ handling. Only scaffold a minimal server when there is genuinely no backend.
 
 ## Core resolution logic
 
-The library is framework-agnostic; only the routing around it changes.
+Resolution is framework-agnostic; only the routing around it changes. Two options, and the
+default is the first.
+
+### Kit (default)
+
+`.skr` names are AllDomains (ANS) accounts, and resolving one is a PDA derivation plus a single
+account read — small enough to own outright rather than take an SDK for.
+
+```bash
+npm install @solana/kit @noble/hashes
+```
+
+```ts
+import { address, createSolanaRpc } from '@solana/kit'
+import { resolveSkrDomain, resolveSkrNames } from './skr'
+
+// Always mainnet, whatever cluster the rest of the app targets.
+const rpc = createSolanaRpc(process.env.SOLANA_MAINNET_RPC_URL)
+
+const owner = await resolveSkrDomain(rpc, 'alice.skr') // Address, or null
+const names = await resolveSkrNames(rpc, address('5FHw...')) // ['alice.skr'], sorted
+```
+
+Copy the implementation from [references/kit-resolver.md](references/kit-resolver.md) — about 140
+lines, typechecked under `tsc --strict`, and free of `Buffer`/`TextEncoder`, so the same file runs
+on a server and in React Native. It accepts `alice.skr` or `alice`, returns `null` for an
+unregistered name, and only rejects when the RPC itself fails.
+
+Reach for the SDK instead when you need ANS records, avatars, or a user's `MainDomain`, none of
+which the helper implements.
+
+### @onsol/tldparser (alternative)
 
 ```bash
 npm install @onsol/tldparser @solana/web3.js
@@ -65,20 +99,31 @@ import { Connection } from '@solana/web3.js'
 const connection = new Connection(process.env.SOLANA_MAINNET_RPC_URL, 'confirmed')
 const parser = new TldParser(connection)
 
-// Forward: name to address. Pass the name WITHOUT the .skr suffix.
-const owner = await parser.getOwnerFromDomainTld('alice')
+// Forward: pass the FULL domain, including the .skr suffix.
+const owner = await parser.getOwnerFromDomainTld('alice.skr')
 
-// Reverse: address to names.
+// Reverse: TLD without the leading dot. Returns [{ nameAccount, domain: 'alice.skr' }].
 const domains = await parser.getParsedAllUserDomainsFromTld(publicKey, 'skr')
 ```
 
-Two things to get right:
+Four things to get right, all verified against mainnet on 1.2.1:
 
-- **`getOwnerFromDomainTld` takes the bare name**, not `alice.skr`. Passing the full domain
-  returns nothing, which reads as "unregistered" rather than as a bug.
-- **Reverse lookup returns an array.** An address can own several `.skr` names, and the order
-  is not a ranking. Pick deterministically — sort and take the first — or the displayed name
-  will change between calls.
+- **`getOwnerFromDomainTld` needs the full domain.** `'alice.skr'` resolves; `'alice'` throws.
+  It splits on `.` and uses the second segment as the TLD, so a bare name derives a PDA under
+  the TLD `.undefined` and finds nothing.
+- **It throws instead of returning null, and an unregistered name is indistinguishable from
+  malformed input** — both surface as `TypeError: Cannot read properties of undefined (reading
+  'owner')`, because the SDK dereferences a name record it never null-checked. Wrap every call
+  in `try`/`catch`; never branch on a falsy return. To tell the two apart, call
+  `getNameRecordFromDomainTld(domain)`, which returns `undefined` cleanly for a missing account.
+- **`getParsedAllUserDomainsFromTld` wants the TLD without a dot.** `'skr'` works; `'.skr'`
+  silently returns `[]`. The `domain` field of each result already includes the suffix.
+- **Reverse lookup returns an array.** An address can own several `.skr` names, and the order is
+  not a ranking. Sort and take the first, or the displayed name will change between calls.
+
+Its ESM build is also broken — see
+[references/server.md](references/server.md#onsoltldparser-alternative) for that and the
+`createRequire` workaround.
 
 ## API shape
 
@@ -116,10 +161,15 @@ For an Android emulator, `localhost` is the emulator itself. Reach the host mach
 source is what breaks the app for the next person — read it from
 `EXPO_PUBLIC_API_URL`.
 
+The snippet above assumes the proxy. If you resolve directly from the app instead, the Kit
+resolver runs unchanged under Hermes — call it from the same hook in place of `fetch`.
+
 Hook, components, and the truncation helper: [references/client.md](references/client.md).
 
 ## Reference material
 
+- [references/kit-resolver.md](references/kit-resolver.md) — the default resolver, how `.skr`
+  names are stored on chain, and what the helper deliberately leaves out
 - [references/server.md](references/server.md) — Express implementation, other frameworks,
   validation and error handling
 - [references/client.md](references/client.md) — resolution hook, display components,
@@ -134,3 +184,5 @@ Hook, components, and the truncation helper: [references/client.md](references/c
 
 - AllDomains developer guide: https://docs.alldomains.id/protocol/developer-guide/ad-sdks/svm-sdks/solana-mainnet-sdk
 - `@onsol/tldparser`: https://www.npmjs.com/package/@onsol/tldparser
+- `@onsol/tldparser` source, for the account layouts: https://github.com/onsol-labs/tld-parser
+- `@solana/kit`: https://www.npmjs.com/package/@solana/kit

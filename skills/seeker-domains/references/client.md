@@ -105,6 +105,44 @@ export function useDomainLookup() {
 }
 ```
 
+## Resolving directly, without a backend
+
+For a prototype, the app can resolve on its own. The Kit resolver in
+[kit-resolver.md](kit-resolver.md) uses only Kit's codecs, `@noble/hashes`, and `DataView` — no
+`Buffer`, `TextEncoder`, or Node built-ins — so it needs no polyfills of its own beyond whatever
+`@solana/kit` already requires in your app.
+
+```typescript
+// hooks/use-resolve-address.ts
+import { useQuery } from '@tanstack/react-query';
+import { address, createSolanaRpc } from '@solana/kit';
+import { resolveSkrNames } from '../utils/skr';
+
+// .skr lives on mainnet regardless of the cluster the rest of the app targets.
+const rpc = createSolanaRpc(process.env.EXPO_PUBLIC_SOLANA_MAINNET_RPC_URL!);
+
+export function useResolveAddress(walletAddress?: string) {
+  return useQuery({
+    queryKey: ['skr-name', walletAddress],
+    enabled: !!walletAddress,
+    staleTime: 1000 * 60 * 60, // names change rarely
+    queryFn: async () => {
+      const names = await resolveSkrNames(rpc, address(walletAddress!));
+      return names[0] ?? null; // already sorted, so this is stable
+    },
+  });
+}
+```
+
+Two caveats before shipping this rather than the proxy:
+
+- The RPC URL ships inside the APK. `EXPO_PUBLIC_*` is readable by anyone who unzips it, so this
+  only works with an endpoint you do not mind exposing.
+- Reverse lookup calls `getProgramAccounts`, which many providers restrict. A public endpoint
+  will also rate-limit a list view that resolves dozens of addresses.
+
+Both point the same way for production: proxy it, and use the hook below.
+
 ## Usage in Components
 
 ### Example 1: Display User's .skr Domain
