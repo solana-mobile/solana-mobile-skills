@@ -32,13 +32,13 @@ Use [`skills`](https://github.com/vercel-labs/skills), the same installer
 `npx solana-mobile create` uses to add the Solana dev skill:
 
 ```bash
-npx -y skills add solana-mobile/solana-mobile-dev-skill
+npx -y skills add solana-mobile/solana-mobile-skills
 ```
 
 That prompts for which skills and which agents. To take everything without prompts:
 
 ```bash
-npx -y skills add solana-mobile/solana-mobile-dev-skill --all
+npx -y skills add solana-mobile/solana-mobile-skills --all
 ```
 
 Skills land in `.agents/skills/`, which most agents read directly, and are symlinked into the
@@ -48,9 +48,9 @@ hash of each skill, so installs are reproducible and reviewable in a diff.
 Useful flags:
 
 ```bash
-npx -y skills add solana-mobile/solana-mobile-dev-skill -l          # list without installing
-npx -y skills add solana-mobile/solana-mobile-dev-skill -g          # install globally
-npx -y skills add solana-mobile/solana-mobile-dev-skill -s solana-mobile-wallet
+npx -y skills add solana-mobile/solana-mobile-skills -l          # list without installing
+npx -y skills add solana-mobile/solana-mobile-skills -g          # install globally
+npx -y skills add solana-mobile/solana-mobile-skills -s solana-mobile-wallet
 ```
 
 Then `skills list`, `skills update`, and `skills remove` manage what is installed.
