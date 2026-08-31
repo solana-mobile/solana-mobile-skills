@@ -12,6 +12,7 @@ reading everything up front.
 | Skill | Use when |
 | --- | --- |
 | [skills/integration-privy](skills/integration-privy/SKILL.md) | Adding Privy authentication over Mobile Wallet Adapter, via Sign-In-With-Solana |
+| [skills/seeker-connect](skills/seeker-connect/SKILL.md) | Connecting a web dapp to the Seeker's built-in wallet, in the browser on the device |
 | [skills/seeker-domains](skills/seeker-domains/SKILL.md) | Resolving or displaying `.skr` domain names in either direction |
 | [skills/seeker-genesis-token](skills/seeker-genesis-token/SKILL.md) | Verifying Seeker device ownership, gating rewards, anti-Sybil checks |
 | [skills/solana-mobile](skills/solana-mobile/SKILL.md) | Creating a project, picking a template, emulators, dev builds, toolchain problems |
