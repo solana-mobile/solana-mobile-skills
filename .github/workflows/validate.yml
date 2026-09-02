@@ -6,6 +6,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -16,28 +19,22 @@ jobs:
         with:
           node-version: 22
 
-      # The reference validator from the Agent Skills standard. Checks frontmatter, the name
-      # pattern, and that each skill's name matches its directory. Pinned so a release cannot
-      # turn an unrelated PR red; bump it deliberately.
+      # Anthropic's quick_validate.py from anthropics/skills, vendored at scripts/validate-skill.py
+      # so a release elsewhere cannot turn an unrelated PR red. The wrapper adds the checks it
+      # lacks, such as the skill name matching its directory. PyYAML is pinned for the same
+      # reason ajv-cli is below.
       - name: Validate against the Agent Skills spec
         run: |
-          rc=0
-          for skill in skills/*/; do
-            if npx -y skills-ref@0.1.5 validate "$skill"; then
-              echo "ok    $skill"
-            else
-              rc=1
-            fi
-          done
-          exit $rc
+          pip install pyyaml==6.0.3
+          ./scripts/validate-skills.sh
 
-      # skills-ref does not check links. See the comment in the script for why that matters.
+      # The spec validator does not check links. See the comment in the script for why that matters.
       - name: Check relative links
         run: ./scripts/check-links.sh
 
       # The repo is also an Agent Plugin (agent-plugins.org): plugin.json plus the skills/
       # directory. The schema URL is versioned and immutable, so fetching it live is stable;
-      # ajv-cli is pinned for the same reason skills-ref is.
+      # ajv-cli is pinned for the same reason PyYAML is.
       - name: Validate against the Agent Plugins spec
         run: |
           curl -sfL https://agent-plugins.org/schemas/1.0.0/plugin.schema.json -o /tmp/plugin.schema.json

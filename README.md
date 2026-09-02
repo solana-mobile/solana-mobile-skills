@@ -124,15 +124,17 @@ duplicating it.
 ## Contributing
 
 Three checks run in CI, and all of them run locally. Validate against the
-[Agent Skills spec](https://agentskills.io/specification) with the standard's own reference
-validator:
+[Agent Skills spec](https://agentskills.io/specification) with Anthropic's `quick_validate.py`
+from [anthropics/skills](https://github.com/anthropics/skills), vendored at
+[`scripts/validate-skill.py`](scripts/validate-skill.py) and wrapped to add the checks it skips,
+such as the skill name matching its directory. Needs `python3` with PyYAML (`pip install pyyaml`):
 
 ```bash
-for skill in skills/*/; do npx -y skills-ref@0.1.5 validate "$skill"; done
+./scripts/validate-skills.sh
 ```
 
-Then check that every relative link resolves and stays inside its skill directory, which
-`skills-ref` does not cover:
+Then check that every relative link resolves and stays inside its skill directory, which the
+spec validator does not cover:
 
 ```bash
 ./scripts/check-links.sh
