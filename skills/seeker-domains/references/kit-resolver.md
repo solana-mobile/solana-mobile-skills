@@ -9,12 +9,18 @@ outright, which buys a not-found path that returns `null` instead of throwing, i
 that accepts what users actually type, and no dependency on an SDK whose ESM build is broken.
 
 ```bash
-npm install @solana/kit @noble/hashes
+npm install @solana/kit "@noble/hashes@^1"
 ```
 
 `@noble/hashes` is a separate install: `@solana/kit` does not depend on it, so it is only
 present by accident if something else in the tree pulls it in. It is pure JavaScript and works
 under Hermes.
+
+**Pin the major, and import `sha2.js` with the extension.** A bare `npm install @noble/hashes`
+now resolves to 2.x, whose `exports` map lists `./sha2.js` and nothing else — the extensionless
+`@noble/hashes/sha2` that 1.x also accepted fails there under strict exports resolution. The
+`./sha2.js` specifier used below is valid on both 1.x and 2.x, so it survives an accidental
+upgrade; the `^1` pin is what keeps the rest of the 2.x API changes out.
 
 ## How `.skr` names are stored
 
@@ -42,7 +48,8 @@ The account is a 200-byte header. Three fields matter here:
 
 The forward record carries nothing after byte 200. The human-readable label lives in a separate
 reverse-lookup account, seeded with the name account's own base58 string — which is why reverse
-lookup costs one extra read per name.
+lookup has to read a second account for every name. Those reads are batched 100 at a time
+through `getMultipleAccounts`, so the cost is one request per 100 names rather than one each.
 
 ## Implementation
 
@@ -63,7 +70,8 @@ import {
   type Base58EncodedBytes,
   type createSolanaRpc,
 } from '@solana/kit';
-import { sha256 } from '@noble/hashes/sha2';
+// Extensioned subpath: valid on @noble/hashes 1.x and 2.x. Bare 'sha2' breaks on 2.x.
+import { sha256 } from '@noble/hashes/sha2.js';
 
 type Rpc = ReturnType<typeof createSolanaRpc>;
 
@@ -77,6 +85,9 @@ const TLD = '.skr';
 const HEADER_SIZE = 200;
 const OWNER_OFFSET = 40;
 const EXPIRES_AT_OFFSET = 104;
+
+// getMultipleAccounts takes at most 100 addresses per call.
+const REVERSE_BATCH_SIZE = 100;
 
 const addressDecoder = getAddressDecoder();
 const utf8Decoder = getUtf8Decoder();
@@ -146,8 +157,16 @@ async function resolveTokenizedOwner(rpc: Rpc, nftRecord: Address): Promise<Addr
   const data = await fetchAccountData(rpc, nftRecord);
   if (!data || data[8] !== 1) return null; // tag !== ActiveRecord
   const mint = addressDecoder.decode(data.subarray(74, 106));
+  // Check the mint, not the holder's balance. getTokenLargestAccounts returns the 20 largest
+  // holders, so a mint with a supply of 2 split between two accounts passes a balance check and
+  // resolves to an arbitrary one of them. Requiring a supply of exactly one indivisible unit is
+  // what makes "the largest holder" and "the owner" the same thing.
+  const { value: supply } = await rpc.getTokenSupply(mint).send();
+  if (supply.decimals !== 0 || BigInt(supply.amount) !== 1n) return null;
+
   const { value: largest } = await rpc.getTokenLargestAccounts(mint).send();
   if (!largest?.length) return null;
+
   const { value: holder } = await rpc
     .getAccountInfo(largest[0].address, { encoding: 'jsonParsed' })
     .send();
@@ -164,7 +183,9 @@ export async function resolveSkrNames(rpc: Rpc, owner: Address): Promise<string[
   const accounts = await rpc
     .getProgramAccounts(ANS_PROGRAM, {
       encoding: 'base64',
-      dataSlice: { offset: 0, length: 0 },
+      // Just the expiry field. Enough to drop expired names in this same call, without
+      // pulling 200-byte headers for every name the address holds.
+      dataSlice: { offset: EXPIRES_AT_OFFSET, length: 8 },
       filters: [
         { memcmp: { offset: 8n, bytes: parent as string as Base58EncodedBytes, encoding: 'base58' } },
         {
@@ -178,15 +199,44 @@ export async function resolveSkrNames(rpc: Rpc, owner: Address): Promise<string[
     })
     .send();
 
-  const names = await Promise.all(
-    accounts.map(async ({ pubkey }) => {
-      const data = await fetchAccountData(rpc, await deriveReverseAccount(pubkey, tldHouse));
-      if (!data || data.length <= HEADER_SIZE) return null;
-      const label = utf8Decoder.decode(data.subarray(HEADER_SIZE)).replace(/\0.*$/, '');
-      return label ? `${label}${TLD}` : null;
-    }),
+  const now = Date.now();
+
+  // Same expiry rule as the forward path: 0 is non-expiring, a past value is unregistered.
+  // Skipping it would leave an expired name showing as somebody's display label.
+  const live = accounts.filter(({ account }) => {
+    const expiry = new Uint8Array(base64Encoder.encode(account.data[0]));
+    if (expiry.length < 8) return false;
+    const expiresAt = Number(
+      new DataView(expiry.buffer, expiry.byteOffset, 8).getBigUint64(0, true),
+    );
+    return expiresAt === 0 || expiresAt * 1000 >= now;
+  });
+
+  // PDA derivation only — no network, so deriving these together is free.
+  const reverseAccounts = await Promise.all(
+    live.map(({ pubkey }) => deriveReverseAccount(pubkey, tldHouse)),
   );
-  return names.filter((name): name is string => name !== null).sort();
+
+  // One request per 100 names, in sequence, rather than one per name all at once. An address
+  // can hold thousands of names and that count is chosen by whoever transferred them, so a
+  // per-name fan-out is a burst an outsider gets to size — against your own RPC quota.
+  const names: string[] = [];
+  for (let i = 0; i < reverseAccounts.length; i += REVERSE_BATCH_SIZE) {
+    const { value: batch } = await rpc
+      .getMultipleAccounts(reverseAccounts.slice(i, i + REVERSE_BATCH_SIZE), {
+        encoding: 'base64',
+      })
+      .send();
+
+    for (const entry of batch) {
+      if (!entry) continue;
+      const data = new Uint8Array(base64Encoder.encode(entry.data[0]));
+      if (data.length <= HEADER_SIZE) continue;
+      const label = utf8Decoder.decode(data.subarray(HEADER_SIZE)).replace(/\0.*$/, '');
+      if (label) names.push(`${label}${TLD}`);
+    }
+  }
+  return names.sort();
 }
 ```
 
@@ -218,12 +268,32 @@ not implement, and quietly resolving them to the wrong account would be worse th
 is tiny, but plenty of providers disable or rate-limit the method regardless. Confirm your
 provider allows it before relying on the reverse direction, and keep it server-side.
 
+**Reverse lookup batches its second read, and does not fan out.** The label for each name lives
+in its own account, so a naive version issues one `getAccountInfo` per name in a single
+`Promise.all`. How many names an address holds is not something you control — anyone can
+transfer names to it — so that shape lets an outsider pick the size of a burst against your RPC
+quota, by loading up an address and asking you to resolve it. The batched loop above is capped
+at 100 addresses per request, one request at a time.
+
 **Reverse lookup returns an array, sorted.** An address can own several `.skr` names, and the
 on-chain order is not a ranking. Sorting is what stops the displayed name changing between
 calls; take `[0]` only after sorting.
 
+**A reverse-resolved name is not a claim about who an address is.** `.skr` names are
+transferable, and a transfer needs nothing from the recipient — anyone can push a name onto any
+wallet. Since `[0]` is just the lexicographically first name the address holds, a stranger can
+decide what your UI calls a user by registering something that sorts early. Sorting makes the
+label stable, not trustworthy. So:
+
+- Render it **beside** the truncated address, never instead of it.
+- Where the label stands in for identity — a payee, a counterparty, a moderation surface —
+  prefer the owner's `MainDomain`, the name they picked themselves. This resolver does not
+  implement it; that is `@onsol/tldparser`'s `getMainDomain`, which throws when the user has
+  never set one (the common case), so treat that throw as "no main domain" and fall back to the
+  address.
+
 **Expiry.** `expiresAt` of `0` means non-expiring, which is what Seeker-issued `.skr` names
-carry today. The check above treats a past `expiresAt` as unregistered with no grace period —
+carry today. Both directions treat a past `expiresAt` as unregistered, with no grace period —
 `@onsol/tldparser` instead keeps a name resolving for roughly 50 days past expiry. If you need
 to match the SDK, or want to show "expires soon", return `expiresAt` rather than dropping it.
 
