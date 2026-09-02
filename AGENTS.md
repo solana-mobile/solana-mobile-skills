@@ -59,6 +59,7 @@ skills/<name>/SKILL.md          the skill: what to do, in order
 skills/<name>/references/*.md   detail loaded on demand
 plugin.json                     Agent Plugin manifest for the repository
 scripts/check-links.sh          checks every relative link resolves and stays in its skill
+scripts/validate-skills.sh      runs the vendored Agent Skills spec validator on every skill
 ```
 
 `skills/` is the single source of truth.
@@ -66,14 +67,15 @@ scripts/check-links.sh          checks every relative link resolves and stays in
 ## Contributing
 
 Three checks run in CI, and all of them run locally. Validate against the Agent Skills spec
-with the standard's own reference validator:
+with Anthropic's `quick_validate.py`, vendored at `scripts/validate-skill.py` and wrapped to add
+the checks it skips, such as the skill name matching its directory. Needs `python3` with PyYAML:
 
 ```bash
-for skill in skills/*/; do npx -y skills-ref@0.1.5 validate "$skill"; done
+./scripts/validate-skills.sh
 ```
 
-Then check that every relative link resolves and stays inside its skill directory, which
-`skills-ref` does not cover:
+Then check that every relative link resolves and stays inside its skill directory, which the
+spec validator does not cover:
 
 ```bash
 ./scripts/check-links.sh

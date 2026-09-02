@@ -4,7 +4,7 @@
 #
 #   ./scripts/check-links.sh
 #
-# `skills-ref validate` covers the frontmatter and naming rules from the Agent Skills spec but
+# `validate-skills.sh` covers the frontmatter and naming rules from the Agent Skills spec but
 # does not check links. That gap matters here: these skills lean on references/, and under
 # progressive disclosure a dead link fails at the moment the agent reaches for the detail —
 # long after anyone would notice reviewing the diff.
