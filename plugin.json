@@ -6,6 +6,7 @@
   },
   "description": "Agent skills for building Solana apps on Android with Expo and React Native.",
   "keywords": ["android", "expo", "mobile-wallet-adapter", "react-native", "seeker", "solana"],
+  "license": "Apache-2.0",
   "name": "solana-mobile-skills",
   "repository": "https://github.com/solana-mobile/solana-mobile-skills"
 }
