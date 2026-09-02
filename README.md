@@ -14,6 +14,7 @@ that compatible clients can discover and load directly.
 | Skill | What it covers |
 | --- | --- |
 | [`integration-privy`](skills/integration-privy/SKILL.md) | Privy authentication over Mobile Wallet Adapter, via Sign-In-With-Solana |
+| [`seeker-connect`](skills/seeker-connect/SKILL.md) | Seeker Connect: web dapps talking to the Seeker's built-in wallet |
 | [`seeker-domains`](skills/seeker-domains/SKILL.md) | `.skr` domain resolution in both directions, with server and client integration |
 | [`seeker-genesis-token`](skills/seeker-genesis-token/SKILL.md) | Seeker device ownership via SGT verification and Sign-in-with-Solana |
 | [`solana-mobile`](skills/solana-mobile/SKILL.md) | Project scaffolding, templates, emulators, development builds, toolchain checks |
