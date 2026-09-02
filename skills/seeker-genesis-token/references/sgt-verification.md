@@ -145,23 +145,33 @@ const { Connection, PublicKey } = require('@solana/web3.js')
 
 const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
 
+const MAX_PAGES = 50
+
 async function checkWalletForSGT(walletAddress, heliusRpcUrl) {
   const connection = new Connection(heliusRpcUrl, 'confirmed')
 
   const accounts = []
+  const seenKeys = new Set()
   let paginationKey = null
   let page = 0
 
   do {
+    if (++page > MAX_PAGES) throw new Error(`Pagination exceeded ${MAX_PAGES} pages`)
+
     const response = await fetch(heliusRpcUrl, {
       body: JSON.stringify({
-        id: `page-${++page}`,
+        id: `page-${page}`,
         jsonrpc: '2.0',
         method: 'getTokenAccountsByOwnerV2',
         params: [
           walletAddress,
           { programId: TOKEN_2022_PROGRAM },
-          { encoding: 'jsonParsed', limit: 1000, ...(paginationKey && { paginationKey }) },
+          {
+            encoding: 'jsonParsed',
+            limit: 1000,
+            withContext: true,
+            ...(paginationKey && { paginationKey }),
+          },
         ],
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -173,8 +183,20 @@ async function checkWalletForSGT(walletAddress, heliusRpcUrl) {
     const data = await response.json()
     if (data.error) throw new Error(`RPC error: ${data.error.message}`)
 
-    accounts.push(...(data.result?.value?.accounts ?? []))
-    paginationKey = data.result?.paginationKey ?? null
+    const value = data.result?.value
+    if (!Array.isArray(value?.accounts)) {
+      throw new Error('Unexpected getTokenAccountsByOwnerV2 response shape')
+    }
+
+    accounts.push(...value.accounts)
+    paginationKey = value.paginationKey ?? null
+
+    if (paginationKey !== null) {
+      if (seenKeys.has(paginationKey)) {
+        throw new Error('getTokenAccountsByOwnerV2 repeated a paginationKey')
+      }
+      seenKeys.add(paginationKey)
+    }
   } while (paginationKey)
 
   const mintPubkeys = accounts
@@ -189,8 +211,22 @@ async function checkWalletForSGT(walletAddress, heliusRpcUrl) {
 }
 ```
 
-Guard the loop against a provider that keeps returning the same `paginationKey` — cap the page
-count if you are not in control of the endpoint.
+`withContext: true` is what makes the read above correct: with it, both `accounts` and
+`paginationKey` live under `result.value`, and without it `result.value` *is* the account array
+with `paginationKey` alongside it on `result` — so a copy that drops the flag has to read
+`Array.isArray(result.value)` instead. Getting this wrong fails silently rather than loudly:
+reading the wrong shape yields `undefined`, no accounts, and `hasSGT: false` for every wallet,
+which is why the shape is asserted rather than defaulted to `[]`.
+
+`seenKeys` and `MAX_PAGES` bound the loop. A provider that keeps handing back the same
+`paginationKey` would otherwise spin forever, and a page cap alone does not catch that — it
+just spins `MAX_PAGES` times first, which is why both guards are here rather than one.
+
+Both throw instead of returning the accounts gathered so far. A truncated list is a list with
+mints missing from it, and a missing mint reads as `hasSGT: false` — the same silent false
+negative as the response-shape bug above, and the reason this file prefers a loud failure. At
+`limit: 1000` the cap allows 50,000 Token-2022 accounts on one wallet, so raise it only if you
+genuinely expect more.
 
 ## Error handling
 
