@@ -32,9 +32,12 @@ code:
 Provider props, hook return values, and transaction construction all differ between them.
 Code from one does not work on the other.
 
-**Use the CLI rather than hand-rolling setup.** `npx solana-mobile@latest` scaffolds projects,
-checks the toolchain (`doctor`), and manages emulators (`emu`). Prefer it over manual
-dependency and polyfill wiring.
+**Use the CLI rather than hand-rolling setup.** `npx solana-mobile@latest` scaffolds projects
+(`create`), checks the toolchain (`doctor`), manages emulators (`emu`) and connected devices
+(`device`), runs a local validator the device can reach (`localnet`), and exercises a wallet
+without an app (`playground`). Prefer it over manual dependency wiring and hand-written `adb`
+incantations. [skills/solana-mobile/references/cli.md](skills/solana-mobile/references/cli.md)
+documents the full surface.
 
 **Android only.** iOS builds run but have no wallet support.
 

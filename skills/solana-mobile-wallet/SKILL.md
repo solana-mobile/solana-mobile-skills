@@ -216,6 +216,20 @@ which is a complete working app and stays current in a way prose does not:
 npx solana-mobile@latest create /tmp/reference-app --template expo-kit-minimal --skip-install
 ```
 
+## Checking whether the wallet or the app is at fault
+
+Before debugging connect or signing code, run the same flow with no app involved:
+
+```bash
+npx solana-mobile@latest device install fakewallet   # if the device has no wallet
+npx solana-mobile@latest playground
+```
+
+`playground` serves a wallet testing page on the device and streams each MWA interaction —
+connect, sign in, sign message, sign transaction, sign and send — back to the terminal. If it
+fails there too, the fault is the wallet or the device, not this code. The `solana-mobile` skill
+covers both commands.
+
 ## Related skills
 
 - `solana-mobile` — project setup, templates, emulators, development builds
