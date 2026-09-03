@@ -33,9 +33,12 @@ jobs:
         run: ./scripts/check-links.sh
 
       # The repo is also an Agent Plugin (agent-plugins.org): plugin.json plus the skills/
-      # directory. The schema URL is versioned and immutable, so fetching it live is stable;
-      # ajv-cli is pinned for the same reason PyYAML is.
+      # directory. The schema URL is versioned, but the immutable cache header is a hint and not
+      # a guarantee, so the checksum is what makes fetching it live safe. To bump it when the
+      # schema changes, review the new file and replace the hash with its sha256. ajv-cli is
+      # pinned to an exact version for the same reason PyYAML is.
       - name: Validate against the Agent Plugins spec
         run: |
           curl -sfL https://agent-plugins.org/schemas/1.0.0/plugin.schema.json -o /tmp/plugin.schema.json
-          npx -y ajv-cli@5 validate --spec=draft2020 -s /tmp/plugin.schema.json -d plugin.json
+          echo "0a4aad95ce337878ad38802ebf0daa3fde76abe3f65400c86bcbb1ec0b3ab883  /tmp/plugin.schema.json" | sha256sum -c -
+          npx -y ajv-cli@5.0.0 validate --spec=draft2020 -s /tmp/plugin.schema.json -d plugin.json

@@ -84,5 +84,7 @@ spec validator does not cover:
 Then validate the Agent Plugin manifest:
 
 ```bash
-curl -sfL https://agent-plugins.org/schemas/1.0.0/plugin.schema.json -o /tmp/plugin.schema.json && npx -y ajv-cli@5 validate --spec=draft2020 -s /tmp/plugin.schema.json -d plugin.json
+curl -sfL https://agent-plugins.org/schemas/1.0.0/plugin.schema.json -o /tmp/plugin.schema.json &&
+echo "0a4aad95ce337878ad38802ebf0daa3fde76abe3f65400c86bcbb1ec0b3ab883  /tmp/plugin.schema.json" | shasum -a 256 -c - &&
+npx -y ajv-cli@5.0.0 validate --spec=draft2020 -s /tmp/plugin.schema.json -d plugin.json
 ```
