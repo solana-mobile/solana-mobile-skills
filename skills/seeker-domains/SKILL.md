@@ -64,8 +64,12 @@ default is the first.
 account read — small enough to own outright rather than take an SDK for.
 
 ```bash
-npm install @solana/kit @noble/hashes
+npm install @solana/kit "@noble/hashes@^1"
 ```
+
+Pin `@noble/hashes` to `^1`. A bare install now gives 2.x, whose `exports` map drops the
+extensionless `./sha2` subpath. The resolver imports `@noble/hashes/sha2.js`, which both majors
+accept, so it survives the upgrade even where the pin does not hold.
 
 ```ts
 import { address, createSolanaRpc } from '@solana/kit'
@@ -120,6 +124,8 @@ Four things to get right, all verified against mainnet on 1.2.1:
   silently returns `[]`. The `domain` field of each result already includes the suffix.
 - **Reverse lookup returns an array.** An address can own several `.skr` names, and the order is
   not a ranking. Sort and take the first, or the displayed name will change between calls.
+  Sorting makes the label stable, not trustworthy — see [Trusting a reverse-resolved
+  name](#trusting-a-reverse-resolved-name).
 
 Its ESM build is also broken — see
 [references/server.md](references/server.md#onsoltldparser-alternative) for that and the
@@ -140,8 +146,14 @@ not end in `.skr` with a 400, so bad input does not consume RPC quota.
 Distinguish "no domain registered" (404) from "RPC failed" (503). Collapsing both into 404
 makes an outage look like every user having no name.
 
-Full Express implementation, plus notes for Fastify, NestJS, Hono, and Next.js route
-handlers: [references/server.md](references/server.md).
+A proxy that exists to protect an RPC key has to not be an open relay in front of it. The
+reverse route costs a `getProgramAccounts` plus a batched read of every name the address owns,
+so the endpoint needs an origin allowlist, a per-IP rate limit, a body limit, and a cache that
+also stores negative results. Require the RPC URL and the origin list at startup rather than
+falling back to the public endpoint or to open CORS.
+
+Full Express and Hono implementations, plus notes for Fastify, NestJS, Koa, and Next.js
+route handlers: [references/server.md](references/server.md).
 
 ## Client integration
 
@@ -153,18 +165,51 @@ const label = domain ?? ellipsify(account?.address)
 Always fall back to a truncated address. A name that fails to resolve should degrade to
 something usable, never to a blank space or a spinner that never resolves.
 
-Cache results — `@tanstack/react-query` with a long `staleTime` is enough, since names change
-rarely.
-
 For an Android emulator, `localhost` is the emulator itself. Reach the host machine at
 `http://10.0.2.2:3000`. On a physical device use the host's LAN IP. Hard-coding either into
-source is what breaks the app for the next person — read it from
-`EXPO_PUBLIC_API_URL`.
+source is what breaks the app for the next person — read it from `EXPO_PUBLIC_API_URL`, and
+gate any emulator fallback on `__DEV__`: `EXPO_PUBLIC_*` is inlined at build time, so an
+ungated default ships a dead cleartext URL in the release APK, which Android blocks by default
+anyway. Nothing with an RPC key belongs in an `EXPO_PUBLIC_*` variable at all — that is what
+the proxy is for.
 
 The snippet above assumes the proxy. If you resolve directly from the app instead, the Kit
 resolver runs unchanged under Hermes — call it from the same hook in place of `fetch`.
 
 Hook, components, and the truncation helper: [references/client.md](references/client.md).
+
+### Trusting a reverse-resolved name
+
+A reverse-resolved name is the first-sorting name an address happens to hold, and a `.skr`
+transfer needs nothing from the recipient — anyone can push a name onto any wallet. So a
+stranger can decide what your UI calls a user, by registering something that sorts early and
+sending it over.
+
+- **Show the name beside the truncated address, not instead of it.** The address is the part
+  a user can actually check.
+- **Where the label stands in for identity** — a payee, a counterparty, a moderation surface —
+  prefer the owner's `MainDomain`, the name they chose. That is `@onsol/tldparser`'s
+  `getMainDomain`, which throws when the user never set one; treat the throw as "none" and fall
+  back to the address.
+- **Reverse lookup must respect expiry.** An expired name that still resolves keeps labelling
+  an address with a name its owner has lost.
+
+### Cache by direction
+
+| Direction | Feeds | Cache |
+| --- | --- | --- |
+| Forward (name → address) | Payment destinations | None. Re-resolve at send time. |
+| Reverse (address → name) | Display labels | Long `staleTime`; an hour is fine. |
+
+Names change rarely, so caching reverse results is nearly free. Forward results are different:
+`.skr` names are transferable and re-registrable, so a forward result cached for an hour and
+then used to build a transfer pays whoever owned the name an hour ago, with nothing in the UI
+looking wrong. Re-resolve immediately before signing, and put the resolved address in the
+confirmation step so the user sees where the funds are actually going.
+
+That has to hold on **both** sides. A client that re-resolves at send time gets nothing if the
+proxy answers from its own forward cache, so the server caches forward misses only and never a
+resolved address.
 
 ## Reference material
 
