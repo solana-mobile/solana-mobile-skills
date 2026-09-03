@@ -190,7 +190,10 @@ const instructions: Instruction[] = [getAddMemoInstruction({ memo: 'gm' })]
 const signature = await sendTransactions(instructions)
 ```
 
-`sendTransactions` handles blockhash, `minContextSlot`, fee payer, and signature decoding.
+`sendTransactions` handles blockhash, `minContextSlot`, fee payer, and signature decoding. It
+returns as soon as the wallet has submitted, so confirm the signature before treating the
+transaction as done — [references/kit.md](references/kit.md#confirming-a-transaction) has the
+helper.
 
 Reach for the explicit `pipe` form only when you need fee-payer control, a specific blockhash
 lifetime, or a fee pre-check. Full worked example, with the balance-versus-fee assertion and
