@@ -72,7 +72,7 @@ const { account, connect, disconnect, connection, signAndSendTransaction } = use
 | `connect` | `() => Promise<Account>` | |
 | `disconnect` | `() => Promise<void>` | |
 | `connection` | `Connection` | web3.js connection — kit exposes `client` instead |
-| `signAndSendTransaction` | `(tx, minContextSlot: number) => Promise<SignatureBytes>` | Second argument required |
+| `signAndSendTransaction` | `(tx, minContextSlot: number) => Promise<TransactionSignature>` | Second argument required; the signature is a base58 string, not bytes |
 | `signTransaction` | `(tx) => Promise<tx>` | Sign without broadcasting |
 | `signMessage` | `(msg: Uint8Array) => Promise<Uint8Array>` | |
 | `signIn` | `(payload) => Promise<SignInOutput>` | See [Sign-in with Solana](#sign-in-with-solana) |
@@ -149,11 +149,15 @@ export function useTransferSol() {
 
     const signature = await signAndSendTransaction(transaction, context.slot)
 
-    await connection.confirmTransaction({
+    const result = await connection.confirmTransaction({
       blockhash: latestBlockhash.blockhash,
       lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-      signature: signature.toString(),
+      signature,
     })
+
+    if (result.value.err) {
+      throw new Error(`Transaction ${signature} failed on chain: ${JSON.stringify(result.value.err)}`)
+    }
 
     return signature
   }
@@ -162,6 +166,12 @@ export function useTransferSol() {
 
 Points that matter:
 
+- **Submission is not confirmation, and a resolved `confirmTransaction` is not a success.**
+  `signAndSendTransaction` returns once the wallet has submitted. `confirmTransaction` resolves
+  with `RpcResponseAndContext<SignatureResult>` and only rejects on timeout or block-height
+  expiry — a transaction that landed and then failed resolves normally with `value.err` set.
+  Confirm against the same blockhash and `lastValidBlockHeight` the transaction was signed with,
+  then check `value.err`, or a failed transfer reads as a completed one.
 - **`signAndSendTransaction` needs `minContextSlot`.** Use
   `getLatestBlockhashAndContext()` rather than `getLatestBlockhash()` so you get the
   blockhash and its slot from one call — the two must agree or the wallet rejects the

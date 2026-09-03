@@ -118,6 +118,72 @@ export function createSolanaClient(cluster: SolanaCluster) {
 export type SolanaClient = ReturnType<typeof createSolanaClient>
 ```
 
+## Confirming a transaction
+
+**Submission is not confirmation.** Both send paths below hand back a signature the moment the
+wallet has passed the transaction to an RPC node. From there it can still be dropped, and if it
+lands it can land with an error. An app that marks an order paid on the signature alone will mark
+orders paid for transactions that never landed.
+
+Confirm against the same blockhash lifetime the transaction was signed with. Once the cluster's
+block height passes that blockhash's `lastValidBlockHeight` no validator will accept the
+transaction, so there is nothing left to wait for:
+
+```ts
+import {
+  assertIsSignature,
+  type GetBlockHeightApi,
+  type GetSignatureStatusesApi,
+  type Rpc,
+} from '@solana/kit'
+
+export async function confirmSignature({
+  lastValidBlockHeight,
+  rpc,
+  signature,
+}: {
+  lastValidBlockHeight: bigint
+  rpc: Rpc<GetBlockHeightApi & GetSignatureStatusesApi>
+  signature: string
+}) {
+  assertIsSignature(signature)
+  let expired = false
+
+  for (;;) {
+    const {
+      value: [status],
+    } = await rpc.getSignatureStatuses([signature]).send()
+
+    if (status?.err) {
+      throw new Error(`Transaction ${signature} failed on chain: ${JSON.stringify(status.err)}`)
+    }
+    if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
+      return signature
+    }
+    if (expired) {
+      throw new Error(`Transaction ${signature} was not confirmed before its blockhash expired.`)
+    }
+
+    expired = (await rpc.getBlockHeight({ commitment: 'confirmed' }).send()) > lastValidBlockHeight
+
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+}
+```
+
+Check `status.err` before `confirmationStatus`. A transaction that landed and then failed still
+reports a `confirmationStatus`, so reading that first turns a failed transfer into a completed
+one.
+
+The expiry check deliberately runs a poll behind: `expired` is set, the loop sleeps, and the
+status is read once more before it throws. A signature can surface in the status cache just after
+the height passes, and that last read is what catches it.
+
+Kit ships `waitForRecentTransactionConfirmation`, which is not usable here — it wants the whole
+signed `Transaction` object plus a subscriptions-backed confirmation promise, and neither send
+path produces a `Transaction`. Both give you a signature and nothing else, so this polls
+`getSignatureStatuses`.
+
 ## Sending a transaction: the short path
 
 ```tsx
@@ -126,18 +192,34 @@ import type { Address, Instruction } from '@solana/kit'
 import { useMobileWallet } from '@wallet-ui/react-native-kit'
 
 export function useSendMemo({ address }: { address: Address }) {
-  const { sendTransactions } = useMobileWallet()
+  const { client, sendTransactions } = useMobileWallet()
 
   return async function send(memo: string) {
     const instructions: Instruction[] = [getAddMemoInstruction({ memo })]
 
-    return sendTransactions(instructions)
+    const { value: latestBlockhash } = await client.rpc
+      .getLatestBlockhash({ commitment: 'confirmed' })
+      .send()
+
+    const signature = await sendTransactions(instructions)
+
+    return confirmSignature({
+      lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+      rpc: client.rpc,
+      signature,
+    })
   }
 }
 ```
 
 `sendTransactions` handles blockhash, `minContextSlot`, fee payer, and signature decoding, and
-returns the signature as a string. Use it unless you need control over one of those.
+returns the signature as a string as soon as the wallet has submitted. Use it unless you need
+control over one of those.
+
+It does not expose the blockhash it used, so fetch one first and confirm against that
+`lastValidBlockHeight`. `sendTransactions` fetches its own blockhash after this call, which can
+only be the same height or newer — so this bound expires at or before the real one, and never
+reports a dead transaction as still pending.
 
 ## Sending a transaction: the explicit path
 
@@ -191,7 +273,12 @@ export async function sendMemo({
   assertIsTransactionMessageWithSingleSendingSigner(message)
 
   const signatureBytes = await signAndSendTransactionMessageWithSigners(message)
-  return getBase58Decoder().decode(signatureBytes)
+
+  return confirmSignature({
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+    rpc: client.rpc,
+    signature: getBase58Decoder().decode(signatureBytes),
+  })
 }
 ```
 
@@ -204,6 +291,10 @@ Points that matter:
   `getBase58Decoder()` to get a signature string.
 - The `assertIsTransactionMessageWithSingleSendingSigner` call is not optional ceremony; it
   is what narrows the type so the send function accepts the message.
+- **A returned signature is not a landed transaction.**
+  `signAndSendTransactionMessageWithSigners` resolves when the wallet has submitted, not when
+  the cluster has confirmed. Run it through `confirmSignature` with the `lastValidBlockHeight`
+  from the same `getLatestBlockhash` response before treating the transaction as done.
 
 ### Checking the fee before sending
 
