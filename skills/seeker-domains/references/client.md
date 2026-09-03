@@ -212,6 +212,9 @@ const onSend = async () => {
 The confirmation step is the part that is easy to skip and most worth keeping. A user who typed
 `alice.skr` cannot tell a re-registration from a correct resolution, but they can recognise an
 address they have paid before — so put the resolved address in front of them before they sign.
+Two different things are called confirmation here: `confirmTransfer` is the user assenting to a
+destination, not the network confirming a transaction — `signAndSend` still has to wait for
+the transaction to land before the payment counts as made.
 
 ## Usage in Components
 
