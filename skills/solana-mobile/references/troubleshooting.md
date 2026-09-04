@@ -100,11 +100,53 @@ npx solana-mobile@latest emu create local_phone --device pixel_9
 
 ## Emulator runs but connect does nothing
 
-A fresh emulator has no wallet app, so MWA has nothing to associate with. Install an
-MWA-compatible wallet APK into the emulator, or use a physical Android device.
+A fresh emulator has no wallet app, so MWA has nothing to associate with. Install the Mobile
+Wallet Adapter test wallet:
+
+```bash
+npx solana-mobile@latest device install fakewallet
+```
+
+Then confirm the wallet, not the app, by driving the same flow without app code:
+
+```bash
+npx solana-mobile@latest playground
+```
+
+If the playground cannot connect either, the problem is the wallet or the device setup rather
+than the app. A physical Android device with a real wallet installed works too.
 
 Anything gated on the Seeker Genesis Token needs a real Seeker device — an emulator cannot
 hold one. See the `seeker-genesis-token` skill.
+
+## Dialogs and animations keep interrupting an emulator run
+
+A fresh AVD greets you with stylus handwriting onboarding, Chrome's sign-in and notification
+prompts, the lock screen, and Play Store notifications, any of which lands on top of the app
+and looks like a broken flow:
+
+```bash
+npx solana-mobile@latest emu tune -y
+```
+
+Tuning is opt-in. `emu start` and `emu create --start` apply it only when passed `--tune`, and
+`-y` skips the tweak picker, which would otherwise block an unattended run. Use `device tune`
+instead for a physical phone — `emu tune` refuses non-emulator serials.
+
+## The app cannot reach a server running on this machine
+
+An emulator or USB device has its own `localhost`, so a dev server or validator on this machine
+is not reachable until a port is forwarded. Both commands do it for you:
+
+```bash
+npx solana-mobile@latest device open http://localhost:3000
+npx solana-mobile@latest localnet start
+```
+
+`device open` creates the `adb reverse` before opening the URL. `localnet start` runs a
+validator and forwards its ports to every connected device; `localnet check` verifies the
+device can actually reach it, and `localnet forward` re-applies the forwards after plugging in
+a device that joined later.
 
 ## `adb` cannot see a physical device
 

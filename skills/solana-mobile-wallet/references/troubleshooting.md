@@ -54,8 +54,12 @@ whether anything on the device claims it:
 adb shell pm query-activities --brief -a android.intent.action.VIEW -d "solana-wallet://"
 ```
 
-`No activities found` means no wallet is installed. Install an MWA-compatible wallet APK, or
-test on a physical Android device that has one.
+`No activities found` means no wallet is installed. Install the Mobile Wallet Adapter test
+wallet, or test on a physical Android device that has a real one:
+
+```bash
+npx solana-mobile@latest device install fakewallet
+```
 
 Because the rejection is invisible by default, catch it and show something — a bare
 `await connect()` inside a try/catch that only logs looks identical to a dead button.
