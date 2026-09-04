@@ -17,6 +17,7 @@ that compatible clients can discover and load directly.
 | [`seeker-domains`](skills/seeker-domains/SKILL.md) | `.skr` domain resolution in both directions, with server and client integration |
 | [`seeker-genesis-token`](skills/seeker-genesis-token/SKILL.md) | Seeker device ownership via SGT verification and Sign-in-with-Solana |
 | [`solana-mobile`](skills/solana-mobile/SKILL.md) | Project scaffolding, templates, emulators, development builds, toolchain checks |
+| [`solana-mobile-publishing`](skills/solana-mobile-publishing/SKILL.md) | Signing a release APK and publishing to the Solana dApp Store |
 | [`solana-mobile-wallet`](skills/solana-mobile-wallet/SKILL.md) | Mobile Wallet Adapter: connect, disconnect, sign, send |
 
 Each skill is a self-contained directory: a `SKILL.md` with the procedure, and `references/`

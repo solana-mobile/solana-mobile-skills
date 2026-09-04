@@ -15,6 +15,7 @@ reading everything up front.
 | [skills/seeker-domains](skills/seeker-domains/SKILL.md) | Resolving or displaying `.skr` domain names in either direction |
 | [skills/seeker-genesis-token](skills/seeker-genesis-token/SKILL.md) | Verifying Seeker device ownership, gating rewards, anti-Sybil checks |
 | [skills/solana-mobile](skills/solana-mobile/SKILL.md) | Creating a project, picking a template, emulators, dev builds, toolchain problems |
+| [skills/solana-mobile-publishing](skills/solana-mobile-publishing/SKILL.md) | Signing a release APK, publishing to the Solana dApp Store, shipping an update |
 | [skills/solana-mobile-wallet](skills/solana-mobile-wallet/SKILL.md) | Connecting a wallet, signing messages, sending transactions |
 
 ## Things that apply across all of them
