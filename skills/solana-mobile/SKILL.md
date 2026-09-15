@@ -237,6 +237,7 @@ installed — `device install fakewallet` if there is none.
 ## Related skills
 
 - `solana-mobile-wallet` — connecting wallets, signing, sending transactions
+- `solana-mobile-publishing` — signing a release APK and shipping to the dApp Store
 - `seeker-genesis-token` — verifying Seeker device ownership
 - `seeker-domains` — `.skr` domain name resolution
 
