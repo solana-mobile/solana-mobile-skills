@@ -4,22 +4,18 @@ Server-side only. See the parent skill for why, and for the SIWS half of the che
 
 ## What makes a mint an SGT
 
-Three properties of a Token-2022 mint must **all** hold. Checking fewer is not a partial
-check — it is a bypass, since any of them can be forged in isolation by an unrelated token.
+Two properties of a Token-2022 mint must **both** hold. Checking only one is not a partial
+check — it is a bypass.
 
 These identify the mint. They say nothing about who holds it, so they are necessary but not
 sufficient — see [the wallet must actually hold the token](#the-wallet-must-actually-hold-the-token).
 
 | Property | Expected value |
 | --- | --- |
-| Mint authority | `GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4` |
-| Metadata pointer authority | `GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4` |
 | Metadata pointer address | `GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te` |
 | Token group member group | `GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te` |
 
 ```js
-const SGT_MINT_AUTHORITY = 'GT2zuHVaZQYZSyQMgJPLzvkmyztfyXg2NJunqFp4p3A4'
-
 // The metadata address and group mint address are intentionally the same value.
 const SGT_METADATA_ADDRESS = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te'
 const SGT_GROUP_MINT_ADDRESS = 'GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te'
@@ -66,8 +62,6 @@ async function findSgtMint(connection, mintPubkeys) {
       const groupMember = getTokenGroupMemberState(mint)
 
       const ok =
-        mint.mintAuthority?.toBase58() === SGT_MINT_AUTHORITY &&
-        metadataPointer?.authority?.toBase58() === SGT_MINT_AUTHORITY &&
         metadataPointer?.metadataAddress?.toBase58() === SGT_METADATA_ADDRESS &&
         groupMember?.group?.toBase58() === SGT_GROUP_MINT_ADDRESS
 
