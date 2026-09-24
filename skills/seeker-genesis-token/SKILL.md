@@ -163,8 +163,8 @@ value off the request.
 ## Step 4: check the wallet for an SGT
 
 See [references/sgt-verification.md](references/sgt-verification.md) for the full
-implementation. It confirms three properties of a Token-2022 mint — mint authority, metadata
-pointer, and token group membership — and all three must match.
+implementation. It confirms two properties of a Token-2022 mint — metadata pointer and token
+group membership — and both must match.
 
 ## Step 5: combine the checks correctly
 
