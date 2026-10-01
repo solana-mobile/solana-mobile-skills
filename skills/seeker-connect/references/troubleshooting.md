@@ -11,16 +11,10 @@ The wallet app never completed the session handshake. Causes, most common first:
 2. **The wallet never launched.** The protocol detects a successful launch by the page
    losing focus within 3 seconds of the association URL opening. If the page stays focused,
    association fails immediately rather than after the timeout.
-3. **Relay rejects or drops the session.** Session traffic rides the Nostr relay in
-   `relayDomain`, and every session publishes ephemeral kind 20012 events from a fresh
-   pubkey. Relays gated by web of trust, allowlist, NIP-05, or payment reject those writes,
-   some relays block the ephemeral kind range, and `relay.damus.io` rate-bans the burst —
-   all of it surfaces here. Check that the value is not a `<relay-domain>` placeholder or a
-   guessed hostname, and that the device can reach it. Relays that passed a full probe
-   (September 2026): `nos.lol`, `nostr-pub.wellorder.net`, `nostr.mom`, `nostr.oxtr.dev`,
-   `relay.primal.net` (the default), `relay.snort.social`. Solana Mobile's own relay is
-   handed out on the quickstart page behind a terms acceptance; the relay step in the skill
-   covers how to ask for it.
+3. **Relay unreachable or misconfigured.** Session traffic rides the Nostr relay in
+   `relayDomain`. Check that the value is `relay.solanamobile.com` — not a `<relay-domain>`
+   placeholder, a guessed hostname, or a host with a `wss://` scheme in front — and that the
+   device can reach it.
 4. **Timeout too tight.** `associationTimeoutMs` (default 30s) covers association only —
    wallet launched but not yet connected. The interaction itself is never timed out.
 
