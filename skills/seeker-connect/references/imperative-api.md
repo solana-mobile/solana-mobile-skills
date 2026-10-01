@@ -34,8 +34,8 @@ const authorization = await link.transact(config, async (wallet) => {
 
 `config` is the same `SeekerConnectConfig` object `registerSeekerConnect` takes (`identity`,
 `relayDomain`, optional `chain`, `firstConnectWalletBaseUri`, `associationTimeoutMs`). The
-relay rule from the skill applies unchanged: default `relayDomain` to `relay.primal.net`,
-and never fill in Solana Mobile's terms-gated relay on the developer's behalf.
+relay rule from the skill applies unchanged: set `relayDomain` to `relay.solanamobile.com`
+and tell the developer to accept Solana Mobile's relay terms.
 
 Fill the payload in, every time. This path hands `signInPayload` to the wallet verbatim: unlike
 the `solana:signIn` feature on the Wallet Standard wallet, it does not default `domain`, and
