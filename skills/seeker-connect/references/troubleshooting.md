@@ -18,6 +18,24 @@ The wallet app never completed the session handshake. Causes, most common first:
 4. **Timeout too tight.** `associationTimeoutMs` (default 30s) covers association only —
    wallet launched but not yet connected. The interaction itself is never timed out.
 
+## A wallet call never settles
+
+The overlay keeps saying "Continue in your Seeker Wallet" and the promise neither resolves nor
+rejects, even though the wallet may already have signed and sent the transaction. The session
+dropped and the transport never told the caller.
+
+Upgrade to `@solana-mobile/seeker-connect-wallet-standard` `0.1.2` or later. It runs on
+Mobile Wallet Adapter 3.0, which keeps the relay connection alive while a request is pending
+and rejects pending requests with `session-closed` when the session ends. Check `npm ls
+@solana-mobile/mobile-wallet-adapter-protocol` resolves to `3.x`.
+
+After `signAndSendTransaction`, `session-closed` does not mean the transaction failed, and the
+error carries no signature to look it up by. Do not retry automatically: check for the
+transaction's effect on chain (for example the fee payer's recent signatures) until its
+blockhash expires, or for a durable-nonce transaction until the nonce advances, and only send
+it again after that. If the wallet offers `signTransaction`,
+signing there and submitting from the app gives the app the signature before it is sent.
+
 ## First connect opens a generic wallet chooser
 
 `firstConnectWalletBaseUri` is unset, so the first connect falls back to the generic

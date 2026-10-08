@@ -55,6 +55,10 @@ the snippets below import from:
 npm install @solana-mobile/seeker-connect-wallet-standard @solana/wallet-standard-features @wallet-standard/app @wallet-standard/features
 ```
 
+Use `0.1.2` or later. Earlier releases sit on Mobile Wallet Adapter 2.x, which can leave a
+wallet call pending forever when the session drops; `0.1.2` moves to MWA 3.0, which rejects
+it with `session-closed` instead.
+
 The Wallet Standard package pulls in the other Seeker Connect packages (`core`, `ui`, `web`)
 as dependencies. They are not re-exported, though — so also install any of them the app
 imports from directly (`@solana-mobile/seeker-connect-ui` for the optional button below,
@@ -189,7 +193,7 @@ Wallet outcomes reject with a `SeekerConnectError` carrying a `code`:
 | `authorization-declined` | The user declined authorization. The cached token is wiped; the next connect prompts fresh consent |
 | `cancelled` | The user dismissed the progress overlay. **A normal outcome — never surface it as an error** |
 | `request-declined` | The wallet declined to sign or submit |
-| `session-closed` | The session ended before the interaction completed |
+| `session-closed` | The session ended before the interaction completed. After `signAndSendTransaction` the transaction may still have landed, and the error carries no signature — never retry automatically — see [references/troubleshooting.md](references/troubleshooting.md#a-wallet-call-never-settles) |
 | `wallet-error` | Any other wallet-reported error |
 
 Three failures are plain `Error`s instead, and they are misuse rather than wallet outcomes:
