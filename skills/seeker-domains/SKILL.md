@@ -11,7 +11,7 @@ makes them a good substitute for truncated addresses in a UI.
 Two directions:
 
 - **Forward** — `alice.skr` to a wallet address
-- **Reverse** — a wallet address to the `.skr` names it owns
+- **Reverse** — a wallet address to a `.skr` name: its primary name, or else one it owns
 
 Both live on **mainnet**, regardless of which cluster the rest of the app targets. An app on
 devnet still resolves names against mainnet.
@@ -55,81 +55,56 @@ handling. Only scaffold a minimal server when there is genuinely no backend.
 
 ## Core resolution logic
 
-Resolution is framework-agnostic; only the routing around it changes. Two options, and the
-default is the first.
-
-### Kit (default)
-
-`.skr` names are AllDomains (ANS) accounts, and resolving one is a PDA derivation plus a single
-account read — small enough to own outright rather than take an SDK for.
+Use [`@solana-mobile/skr-domain`](https://www.npmjs.com/package/@solana-mobile/skr-domain). Do
+not copy a resolver into the project or reach for another SDK: the package is maintained by
+Solana Mobile, built on `@solana/kit`, and covers both directions. Resolution is
+framework-agnostic; only the routing around it changes.
 
 ```bash
-npm install @solana/kit "@noble/hashes@^1"
+npm install @solana-mobile/skr-domain @solana/kit
 ```
 
-Pin `@noble/hashes` to `^1`. A bare install now gives 2.x, whose `exports` map drops the
-extensionless `./sha2` subpath. The resolver imports `@noble/hashes/sha2.js`, which both majors
-accept, so it survives the upgrade even where the pin does not hold.
-
 ```ts
+import { getPrimarySkrDomain, getSkrDomains, normalizeSkrName, resolveSkrDomain } from '@solana-mobile/skr-domain'
 import { address, createSolanaRpc } from '@solana/kit'
-import { resolveSkrDomain, resolveSkrNames } from './skr'
 
 // Always mainnet, whatever cluster the rest of the app targets.
-const rpc = createSolanaRpc(process.env.SOLANA_MAINNET_RPC_URL)
+const rpc = createSolanaRpc(process.env.SOLANA_MAINNET_RPC_URL!)
 
-const owner = await resolveSkrDomain(rpc, 'alice.skr') // Address, or null
-const names = await resolveSkrNames(rpc, address('5FHw...')) // ['alice.skr'], sorted
+// Forward: { owner, nameAccount, expiresAt }, or null when unregistered or expired.
+const domain = await resolveSkrDomain(rpc, 'alice.skr')
+
+// Reverse: the name the wallet chose, else the first name it owns (sorted), else null.
+const wallet = address('5FHw...')
+const name = (await getPrimarySkrDomain(rpc, wallet)) ?? (await getSkrDomains(rpc, wallet))[0] ?? null
 ```
 
-Copy the implementation from [references/kit-resolver.md](references/kit-resolver.md) — about 140
-lines, typechecked under `tsc --strict`, and free of `Buffer`/`TextEncoder`, so the same file runs
-on a server and in React Native. It accepts `alice.skr` or `alice`, returns `null` for an
-unregistered name, and only rejects when the RPC itself fails.
+What the package does, so you do not re-implement it:
 
-Reach for the SDK instead when you need ANS records, avatars, or a user's `MainDomain`, none of
-which the helper implements.
+- **Not-found is `null` (or `[]`), never a throw.** A rejection means the RPC failed, so the two
+  map cleanly onto a 404 and a 503.
+- **Invalid input throws a plain `Error`.** `normalizeSkrName` accepts `alice`, `Alice.skr` and
+  `' alice '`, and throws for subdomains, other TLDs, or an empty label. Call it inside a
+  `try`/`catch` to turn bad input into a 400 before spending RPC quota.
+- **Expired names resolve as unregistered**, in both directions, with no grace period.
+- **`getPrimarySkrDomain` re-checks ownership.** A `MainDomain` account is not updated on
+  transfer, so the package resolves the name forward and only returns it if the wallet still owns
+  it.
+- **`getSkrDomains` uses `getProgramAccounts`**, which many providers disable or rate-limit. It
+  reads labels in batches of 100, one request at a time, so a wallet stuffed with names cannot
+  set the size of a burst against your quota.
+- **NFT-wrapped names are out of scope.** None exist under `.skr` today; `resolveSkrDomain`
+  throws if one appears.
 
-### @onsol/tldparser (alternative)
+**React Native needs a WebCrypto polyfill.** Deriving a name address calls
+`crypto.subtle.digest`, which Hermes lacks. Install `react-native-quick-crypto` and call its
+`install()` at startup, before the package is imported. Node 20.18+, Bun and browsers need nothing.
 
-```bash
-npm install @onsol/tldparser @solana/web3.js
-```
+**The package is ESM-only.** A CommonJS server needs `"type": "module"` (or Node 22.12+, which can
+`require()` ES modules).
 
-```ts
-import { TldParser } from '@onsol/tldparser'
-import { Connection } from '@solana/web3.js'
-
-const connection = new Connection(process.env.SOLANA_MAINNET_RPC_URL, 'confirmed')
-const parser = new TldParser(connection)
-
-// Forward: pass the FULL domain, including the .skr suffix.
-const owner = await parser.getOwnerFromDomainTld('alice.skr')
-
-// Reverse: TLD without the leading dot. Returns [{ nameAccount, domain: 'alice.skr' }].
-const domains = await parser.getParsedAllUserDomainsFromTld(publicKey, 'skr')
-```
-
-Four things to get right, all verified against mainnet on 1.2.1:
-
-- **`getOwnerFromDomainTld` needs the full domain.** `'alice.skr'` resolves; `'alice'` throws.
-  It splits on `.` and uses the second segment as the TLD, so a bare name derives a PDA under
-  the TLD `.undefined` and finds nothing.
-- **It throws instead of returning null, and an unregistered name is indistinguishable from
-  malformed input** — both surface as `TypeError: Cannot read properties of undefined (reading
-  'owner')`, because the SDK dereferences a name record it never null-checked. Wrap every call
-  in `try`/`catch`; never branch on a falsy return. To tell the two apart, call
-  `getNameRecordFromDomainTld(domain)`, which returns `undefined` cleanly for a missing account.
-- **`getParsedAllUserDomainsFromTld` wants the TLD without a dot.** `'skr'` works; `'.skr'`
-  silently returns `[]`. The `domain` field of each result already includes the suffix.
-- **Reverse lookup returns an array.** An address can own several `.skr` names, and the order is
-  not a ranking. Sort and take the first, or the displayed name will change between calls.
-  Sorting makes the label stable, not trustworthy — see [Trusting a reverse-resolved
-  name](#trusting-a-reverse-resolved-name).
-
-Its ESM build is also broken — see
-[references/server.md](references/server.md#onsoltldparser-alternative) for that and the
-`createRequire` workaround.
+For ANS records or avatars, which the package does not cover, use the AllDomains SDK — see the
+links below.
 
 ## API shape
 
@@ -140,17 +115,17 @@ Two endpoints, adapted to whatever framework is in use:
 | `POST /api/resolve-domain` | `{ domain: "alice.skr" }` | `{ address }` | 404 |
 | `POST /api/resolve-address` | `{ address: "5FHw..." }` | `{ domain }` | 404 |
 
-Validate input before touching RPC: reject a malformed base58 address or a domain that does
-not end in `.skr` with a 400, so bad input does not consume RPC quota.
+Validate input before touching RPC: reject a malformed base58 address or a name that
+`normalizeSkrName` rejects with a 400, so bad input does not consume RPC quota.
 
 Distinguish "no domain registered" (404) from "RPC failed" (503). Collapsing both into 404
 makes an outage look like every user having no name.
 
 A proxy that exists to protect an RPC key has to not be an open relay in front of it. The
-reverse route costs a `getProgramAccounts` plus a batched read of every name the address owns,
-so the endpoint needs an origin allowlist, a per-IP rate limit, a body limit, and a cache that
-also stores negative results. Require the RPC URL and the origin list at startup rather than
-falling back to the public endpoint or to open CORS.
+reverse route costs up to two `getAccountInfo` calls, a `getProgramAccounts`, and a batched read
+of every name the address owns, so the endpoint needs an origin allowlist, a per-IP rate limit, a
+body limit, and a cache that also stores negative results. Require the RPC URL and the origin
+list at startup rather than falling back to the public endpoint or to open CORS.
 
 Full Express and Hono implementations, plus notes for Fastify, NestJS, Koa, and Next.js
 route handlers: [references/server.md](references/server.md).
@@ -173,26 +148,23 @@ ungated default ships a dead cleartext URL in the release APK, which Android blo
 anyway. Nothing with an RPC key belongs in an `EXPO_PUBLIC_*` variable at all — that is what
 the proxy is for.
 
-The snippet above assumes the proxy. If you resolve directly from the app instead, the Kit
-resolver runs unchanged under Hermes — call it from the same hook in place of `fetch`.
+The snippet above assumes the proxy. If you resolve directly from the app instead, the package
+runs under Hermes once the WebCrypto polyfill is installed — call it from the same hook in place
+of `fetch`.
 
 Hook, components, and the truncation helper: [references/client.md](references/client.md).
 
 ### Trusting a reverse-resolved name
 
-A reverse-resolved name is the first-sorting name an address happens to hold, and a `.skr`
-transfer needs nothing from the recipient — anyone can push a name onto any wallet. So a
-stranger can decide what your UI calls a user, by registering something that sorts early and
-sending it over.
+The primary name is one the wallet chose. A name from `getSkrDomains` is not: a `.skr` transfer
+needs nothing from the recipient, so anyone can push a name onto any wallet, and a stranger can
+decide what your UI calls a user without a primary name by sending one that sorts early.
 
+- **Prefer `getPrimarySkrDomain`**, and fall back to `getSkrDomains` only for display.
 - **Show the name beside the truncated address, not instead of it.** The address is the part
   a user can actually check.
 - **Where the label stands in for identity** — a payee, a counterparty, a moderation surface —
-  prefer the owner's `MainDomain`, the name they chose. That is `@onsol/tldparser`'s
-  `getMainDomain`, which throws when the user never set one; treat the throw as "none" and fall
-  back to the address.
-- **Reverse lookup must respect expiry.** An expired name that still resolves keeps labelling
-  an address with a name its owner has lost.
+  use the primary name only, and fall back to the address.
 
 ### Cache by direction
 
@@ -213,10 +185,8 @@ resolved address.
 
 ## Reference material
 
-- [references/kit-resolver.md](references/kit-resolver.md) — the default resolver, how `.skr`
-  names are stored on chain, and what the helper deliberately leaves out
-- [references/server.md](references/server.md) — Express implementation, other frameworks,
-  validation and error handling
+- [references/server.md](references/server.md) — Express and Hono implementations, other
+  frameworks, validation and error handling
 - [references/client.md](references/client.md) — resolution hook, display components,
   emulator networking
 
@@ -227,7 +197,7 @@ resolved address.
 
 ## Links
 
+- `@solana-mobile/skr-domain`: https://www.npmjs.com/package/@solana-mobile/skr-domain
+- `@solana-mobile/skr-domain` source and README: https://github.com/solana-mobile/skr-js/tree/main/packages/skr-domain
 - AllDomains developer guide: https://docs.alldomains.id/protocol/developer-guide/ad-sdks/svm-sdks/solana-mainnet-sdk
-- `@onsol/tldparser`: https://www.npmjs.com/package/@onsol/tldparser
-- `@onsol/tldparser` source, for the account layouts: https://github.com/onsol-labs/tld-parser
 - `@solana/kit`: https://www.npmjs.com/package/@solana/kit

@@ -116,16 +116,19 @@ export function useDomainLookup() {
 
 ## Resolving directly, without a backend
 
-For a prototype, the app can resolve on its own. The Kit resolver in
-[kit-resolver.md](kit-resolver.md) uses only Kit's codecs, `@noble/hashes`, and `DataView` — no
-`Buffer`, `TextEncoder`, or Node built-ins — so it needs no polyfills of its own beyond whatever
-`@solana/kit` already requires in your app.
+For a prototype, the app can resolve on its own with
+[`@solana-mobile/skr-domain`](https://www.npmjs.com/package/@solana-mobile/skr-domain). It hashes
+names with WebCrypto (`crypto.subtle.digest`), which Hermes lacks: install
+`react-native-quick-crypto` and call its `install()` at startup, before the package is imported,
+the way the Solana Mobile Expo templates do in their `polyfill.js`. It is a native module, so Expo
+Go cannot load it: run a development build (`npx expo run:android`) that includes it, or use the
+backend path above.
 
 ```typescript
 // hooks/use-resolve-address.ts
 import { useQuery } from '@tanstack/react-query';
 import { address, createSolanaRpc } from '@solana/kit';
-import { resolveSkrNames } from '../utils/skr';
+import { getPrimarySkrDomain, getSkrDomains } from '@solana-mobile/skr-domain';
 
 // .skr lives on mainnet regardless of the cluster the rest of the app targets.
 //
@@ -143,8 +146,9 @@ export function useResolveAddress(walletAddress?: string) {
     // Reverse direction, so a long staleTime is fine — see "Caching by direction" below.
     staleTime: 1000 * 60 * 60,
     queryFn: async () => {
-      const names = await resolveSkrNames(rpc, address(walletAddress!));
-      return names[0] ?? null; // already sorted, so this is stable
+      const wallet = address(walletAddress!);
+      // The name the wallet chose, else the first it owns (sorted, so stable), else null.
+      return (await getPrimarySkrDomain(rpc, wallet)) ?? (await getSkrDomains(rpc, wallet))[0] ?? null;
     },
   });
 }
@@ -156,7 +160,7 @@ Two caveats before shipping this rather than the proxy:
   unzips the APK, so client-side resolution only works against an endpoint you do not mind
   exposing. That is why the sample hardcodes the public one instead of reading an env var that
   invites a paid URL.
-- Reverse lookup calls `getProgramAccounts`, which many providers restrict. The public endpoint
+- The fallback to `getSkrDomains` calls `getProgramAccounts`, which many providers restrict. The public endpoint
   will also rate-limit a list view that resolves dozens of addresses.
 
 Both point the same way for production: proxy it, and use the hook above.
@@ -348,7 +352,7 @@ export function WalletListItem({ address }: WalletListItemProps) {
     };
   }, [address]);
 
-  // The name goes beside the address, never in place of it. A reverse-resolved .skr name is
+  // The name goes beside the address, never in place of it. Without a primary name, the label is
   // whatever sorts first among the names that address holds, and anyone can transfer a name to
   // any wallet without the owner agreeing — so a stranger can choose the label here.
   return (
@@ -380,7 +384,7 @@ export function ellipsify(str: string, len = 4): string {
 
 3. **Caching**: cache by direction, not uniformly. Long `staleTime` for reverse lookups (display labels); no cache for forward lookups, re-resolved at send time, because a stale name-to-address entry pays the name's previous owner. See [Caching by direction](#caching-by-direction).
 
-4. **Display names beside addresses, not instead of them**: a reverse-resolved `.skr` name is the first-sorting name an address happens to hold, and names are transferable without the recipient's consent, so the label can be picked by a third party. Keep the truncated address visible next to it, and put the resolved address in any confirmation step that precedes a signature.
+4. **Display names beside addresses, not instead of them**: when a wallet has no primary name, the reverse-resolved `.skr` name is the first-sorting name it happens to hold, and names are transferable without the recipient's consent, so the label can be picked by a third party. Keep the truncated address visible next to it, and put the resolved address in any confirmation step that precedes a signature.
 
 5. **Resolution is async, so guard against stale responses**: switching accounts or recycling a list row starts a second lookup while the first is in flight, and they can land out of order. Clear the name when the address changes — including on disconnect — and drop any response that arrives after it did, or one wallet ends up labelled with another's name.
 

@@ -27,8 +27,8 @@ Requirements:
 
 - A backend you control that can make Solana mainnet RPC calls
 - Storage for nonces and claim records
-- An RPC endpoint. A paid provider helps, since the check may enumerate many token accounts —
-  keep that key server-side only, never in an `EXPO_PUBLIC_*` variable
+- A mainnet RPC endpoint. A paid provider helps, since the check reads every Token-2022 account
+  the wallet holds — keep that key server-side only, never in an `EXPO_PUBLIC_*` variable
 
 ## Prerequisites
 
@@ -162,9 +162,46 @@ value off the request.
 
 ## Step 4: check the wallet for an SGT
 
-See [references/sgt-verification.md](references/sgt-verification.md) for the full
-implementation. It confirms two properties of a Token-2022 mint — metadata pointer and token
-group membership — and both must match.
+Use [`@solana-mobile/skr-genesis-token`](https://www.npmjs.com/package/@solana-mobile/skr-genesis-token).
+Do not hand-roll the check: the package is maintained by Solana Mobile and gets the details
+right that a copied snippet tends to miss.
+
+```bash
+npm install @solana-mobile/skr-genesis-token @solana/kit
+```
+
+```ts
+import { getSeekerGenesisTokens } from '@solana-mobile/skr-genesis-token'
+import { address, createSolanaRpc } from '@solana/kit'
+
+// SGTs exist only on mainnet, whatever cluster the rest of the app targets.
+const rpc = createSolanaRpc(process.env.SOLANA_MAINNET_RPC_URL!)
+
+async function getWalletSGTMints(walletAddress: string) {
+  const tokens = await getSeekerGenesisTokens(rpc, address(walletAddress))
+  return tokens.map((token) => token.mint)
+}
+```
+
+Return the **mint addresses**, not just a boolean: a mint identifies a device, which is what
+the anti-Sybil check below records. Keep every mint, not only the first: one wallet can hold the
+SGTs of several devices, and each of them is entitled to claim. `hasSeekerGenesisToken` exists for a plain yes/no, and
+`isSeekerGenesisToken` verifies a single mint.
+
+What the package handles, so you do not add it again:
+
+- **A mint is an SGT only if both its `TokenGroupMember` group and its `MetadataPointer` are the
+  SGT group mint.** It decodes those extensions from the mint bytes, never from names or
+  off-chain metadata.
+- **Zero-balance token accounts are skipped.** Transferring an SGT out leaves the old account
+  open at `0`; counting it would verify every past holder forever.
+- **Frozen accounts are not rejected.** A legitimately held SGT sits in a frozen account — do not
+  add a freeze check on top.
+- **RPC failures throw.** Let them: map them to a 503 at the API boundary, never to
+  an empty list, or an outage reads as "you do not own a Seeker".
+
+It reads the wallet's Token-2022 accounts in one `getTokenAccountsByOwner` request, with no
+pagination, using standard RPC methods only, so any mainnet endpoint works.
 
 ## Step 5: combine the checks correctly
 
@@ -186,9 +223,9 @@ async function verifySeekerUser({ address, nonce, signature, signedMessage }) {
   }
 
   // 3. Check the SGT against the address the signature was just verified against.
-  const { hasSGT, mintAddress } = await checkWalletForSGT(address)
+  const mintAddresses = await getWalletSGTMints(address)
 
-  return { address, hasSGT, mintAddress }
+  return { address, mintAddresses }
 }
 ```
 
@@ -212,18 +249,24 @@ CREATE TABLE claims (
 ```
 
 ```ts
-const { address, hasSGT, mintAddress } = await verifySeekerUser(request.body)
-if (!hasSGT) throw new Error('No Seeker Genesis Token found.')
+const { address, mintAddresses } = await verifySeekerUser(request.body)
+if (mintAddresses.length === 0) throw new Error('No Seeker Genesis Token found.')
 
 // Insert first and let the constraint decide. Asking whether a row exists and then
 // inserting is a double-claim bug: two concurrent requests both find nothing.
-try {
-  await claims.insert({ claimedAt: new Date(), mintAddress })
-} catch (error) {
-  // 23505 is the Postgres unique violation. Other drivers report it differently.
-  if (error.code === '23505') throw new Error('This device has already claimed.')
-  throw error
+// Try each held SGT in turn, so a wallet whose first device has claimed can claim for the next.
+let mintAddress: string | undefined
+for (const candidate of mintAddresses) {
+  try {
+    await claims.insert({ claimedAt: new Date(), mintAddress: candidate })
+    mintAddress = candidate
+    break
+  } catch (error) {
+    // 23505 is the Postgres unique violation. Other drivers report it differently.
+    if ((error as { code?: unknown } | null)?.code !== '23505') throw error
+  }
 }
+if (!mintAddress) throw new Error('Every Seeker in this wallet has already claimed.')
 
 // Pay out only once the insert has landed. Anything paid before it can be paid twice.
 await grantReward(address)
@@ -238,14 +281,6 @@ free.
 This one is robustness rather than security: getting it wrong denies a real owner their
 reward, it does not let anyone claim twice.
 
-Have `checkWalletForSGT` return the mint address rather than a bare boolean — see the end of
-the reference file.
-
-## Reference material
-
-- [references/sgt-verification.md](references/sgt-verification.md) — full verification
-  implementation, SGT constants, standard-RPC and Helius variants
-
 ## Related skills
 
 - `solana-mobile-wallet` — wallet connection and the two `signIn` payload forms
@@ -253,5 +288,6 @@ the reference file.
 
 ## Links
 
+- `@solana-mobile/skr-genesis-token`: https://github.com/solana-mobile/skr-js/tree/main/packages/skr-genesis-token#readme
 - Detecting Seeker users: https://docs.solanamobile.com/react-native/detecting-seeker-users
 - Sign-in-with-Solana spec: https://github.com/phantom/sign-in-with-solana
