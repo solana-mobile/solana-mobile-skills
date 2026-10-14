@@ -294,10 +294,21 @@ and it changes — read it rather than guessing.
 
 ## Web apps
 
-A wrapped web app takes a different route: a web manifest, a Bubblewrap build, and Digital Asset
-Links published at `/.well-known/assetlinks.json`. Only go there if the app genuinely is a PWA
-being wrapped. A React Native app follows the native APK path above, and Bubblewrap will only
-add a layer that breaks Mobile Wallet Adapter.
+A wrapped web app takes a different route: `npx solana-mobile@latest webshell init` and
+`webshell build`, which put the site in an Android WebView and create the signing keystore. Only
+go there if the app genuinely is a web app being wrapped. A React Native app follows the native
+APK path above.
+
+Do not use Bubblewrap. Its Trusted Web Activity runs in Chrome, and Chrome's Local Network Access
+restrictions block Mobile Wallet Adapter or put a permission prompt in front of it. Webshell
+hands wallet requests to the wallet app through Android instead, and needs no Digital Asset
+Links. The page needs `@solana-mobile/wallet-standard-mobile` 0.5.1 or later to skip the prompt.
+
+Migrating from Bubblewrap: pass the existing `twa-manifest.json` to `webshell init --manifest`.
+It carries over the package id, version numbers and signing key, so the existing listing updates
+in place. The imported `versionCode` is reused as-is, so pass `--version-code` higher than the
+listing's current one or the store will not accept it as an update. Flags are in the
+`solana-mobile` skill's CLI reference.
 
 Full walkthrough: https://docs.solanamobile.com/recipes/general/publishing-a-web-app
 
