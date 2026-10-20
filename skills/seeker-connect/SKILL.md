@@ -1,9 +1,9 @@
 ---
 name: seeker-connect
-description: Connect a web dapp to the Seeker device's built-in wallet with Seeker Connect. Use when adding wallet connection, sign-in with Solana, message signing, or transaction signing to a website that runs in the browser on a Seeker phone, registering the "Seeker Connect" Wallet Standard wallet, setting the Nostr relay for relayDomain, using the seeker-connect-button element, or debugging SeekerConnectError codes like association-failed.
+description: Connect a web, React Native, or Kotlin dapp to the Seeker device's built-in wallet with Seeker Connect. Use when adding wallet connection, sign-in with Solana, message signing, or transaction signing to an Expo or React Native app on a Seeker phone, a Kotlin app on it, or a website that runs in its browser, registering the "Seeker Connect" Wallet Standard wallet, setting the Nostr relay for relayDomain, using the seeker-connect-button element or the SeekerConnectButton native view, installing @solana-mobile/seeker-connect-react-native or com.solanamobile:seeker-connect, or debugging SeekerConnectError codes like association-failed.
 ---
 
-# Seeker Connect for web dapps
+# Seeker Connect
 
 Seeker Connect links a web page open in the browser **on the device** to a Solana Mobile
 certified device's own wallet — Seeker is the first such device. It is a dapp-only SDK built
@@ -14,9 +14,14 @@ App Link) mechanism, carries the session over a Nostr relay, and ships Seeker-br
 progress and error UI — all exposed to the app as an ordinary Wallet Standard wallet named
 **"Seeker Connect"**.
 
-Targets: **Web is available today.** React Native and Android (Kotlin) are planned. Until
-they ship, wallet connection inside an Expo or React Native app uses the
-`solana-mobile-wallet` skill instead.
+Targets: **Expo / React Native, Kotlin, and web are all available.** For an Expo or React
+Native app, read the mental model below, then follow
+[references/react-native.md](references/react-native.md); for a Kotlin app,
+[references/kotlin.md](references/kotlin.md), or start from the `kotlin-compose-minimal`
+template of `npx solana-mobile@latest create`, which ships it wired up. Both expose the same client API as the web, with
+no relay to configure and the branded UI drawn natively. The rest of this file walks the web
+path. Plain Mobile Wallet Adapter in React Native, without Seeker Connect, is the
+`solana-mobile-wallet` skill.
 
 ## The mental model — read this before writing code
 
@@ -247,6 +252,11 @@ connect or sign-in call yourself — the button is presentation only.
 
 ## Reference material
 
+- [references/kotlin.md](references/kotlin.md) — the Kotlin SDK: Gradle setup, the
+  `SeekerConnect` constructor, the client methods, the Compose button and dialogs, and
+  `SeekerConnectException` codes
+- [references/react-native.md](references/react-native.md) — the React Native package:
+  install, `https` identity requirement, the client methods, and the native button
 - [references/imperative-api.md](references/imperative-api.md) — the non-Wallet-Standard
   path via `createNostrSeekerLink().transact`, and the `seekerLink` /
   `authorizationCache` / `presenter` overrides
@@ -258,8 +268,8 @@ connect or sign-in call yourself — the button is presentation only.
 - `seeker-domains` — display `.skr` names instead of raw addresses
 - `seeker-genesis-token` — verify Seeker device ownership after connecting
 - `solana-mobile` — the CLI, templates, and toolchain behind `solana-mobile create`
-- `solana-mobile-wallet` — wallet connection in React Native apps (Mobile Wallet Adapter
-  directly)
+- `solana-mobile-wallet` — wallet connection in React Native apps through Mobile Wallet
+  Adapter directly, without Seeker Connect
 
 ## Links
 
