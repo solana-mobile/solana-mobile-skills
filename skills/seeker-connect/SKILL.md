@@ -17,9 +17,10 @@ progress and error UI — all exposed to the app as an ordinary Wallet Standard 
 Targets: **Expo / React Native, Kotlin, and web are all available.** For an Expo or React
 Native app, read the mental model below, then follow
 [references/react-native.md](references/react-native.md); for a Kotlin app,
-[references/kotlin.md](references/kotlin.md), or start from the `kotlin-compose-minimal`
-template of `npx solana-mobile@latest create`, which ships it wired up. Both expose the same client API as the web, with
-no relay to configure and the branded UI drawn natively. The rest of this file walks the web
+[references/kotlin.md](references/kotlin.md). The `expo-kit-minimal` and
+`kotlin-compose-minimal` templates of `npx solana-mobile@latest create` ship each path wired
+up. Both expose the same client API as the web, with no relay to configure and the branded UI
+drawn natively. The rest of this file walks the web
 path. Plain Mobile Wallet Adapter in React Native, without Seeker Connect, is the
 `solana-mobile-wallet` skill.
 

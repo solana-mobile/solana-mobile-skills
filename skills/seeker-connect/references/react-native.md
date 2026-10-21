@@ -11,6 +11,10 @@ WebSocket on the device, so there is no relay to configure and no relay terms to
   it up on the next `npx expo prebuild`; current Expo SDKs already meet its Android floor of
   compileSdk 36, Android Gradle plugin 8.9.1, and Kotlin 2.0.
 - `0.2.0` or later. Nothing earlier was published.
+- For a new app, start from the `expo-kit-minimal` template:
+  `npx solana-mobile@latest create my-app --template expo-kit-minimal`. It ships everything on
+  this page wired up: the package, a provider that keeps the authorization in React state and
+  builds transactions with `@solana/kit`, and the native button.
 
 ## Install
 
