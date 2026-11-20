@@ -216,9 +216,9 @@ installed reports it and exits 0, so "remove any leftover, then create" needs no
 
 ### emulator images
 
-`install`, `list`, and `delete` for Android system images. `install` takes `--all` to show every
-available image rather than the recommended shortlist; `install` and `delete` take `-v`; all
-three take `--sdk-root`.
+`install`, `list`, and `delete` for Android system images. Run without an image name, `install`
+prompts with every Google Play image for the host architecture that is not already installed, API
+36 first. `install` and `delete` take `-v`; all three take `--sdk-root`.
 
 ### emulator start
 

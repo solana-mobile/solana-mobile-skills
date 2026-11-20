@@ -227,11 +227,11 @@ but not signed in", which is where the sign-in button belongs.
   their causes
 
 The patterns here follow
-[`expo-kit-privy`](https://github.com/solana-mobile/templates/tree/main/mobile/expo-kit-privy),
+[`sample-expo-kit-privy`](https://github.com/solana-mobile/templates/tree/main/mobile/sample-expo-kit-privy),
 a complete working app. Read it when this file is ambiguous:
 
 ```bash
-npx solana-mobile@latest create /tmp/reference-app --template expo-kit-privy --skip-install
+npx solana-mobile@latest create /tmp/reference-app --template sample-expo-kit-privy --skip-install
 ```
 
 ## Related skills
