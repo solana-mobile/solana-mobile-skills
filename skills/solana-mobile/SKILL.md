@@ -78,8 +78,9 @@ Useful flags:
 
 ### Choosing a template
 
-Templates come in two families. **Pick an `expo-kit-*` template.** `@solana/kit` is the current
-Solana client library, and these are the templates the CLI maintains most actively.
+Templates come in two families. **Pick an `expo-kit-*` template**, or
+`sample-expo-kit-privy` for Privy auth. `@solana/kit` is the current Solana client library, and
+these are the templates the CLI maintains most actively.
 
 Reach for `expo-web3js-*` only when the user is deliberately continuing an existing
 `@solana/web3.js` codebase, or asks for it by name. If they ask without a reason, say kit is the
@@ -94,7 +95,7 @@ reading even when building on a different template.
 | `expo-kit-wallet` | Kit + MWA + Uniwind | **Best default.** Wallet connect, sign, send already wired |
 | `expo-kit-minimal` | Kit | Bare starting point, no UI kit |
 | `expo-kit-uniwind` | Kit + Uniwind | Tailwind-style styling, no wallet yet |
-| `expo-kit-privy` | Kit + Privy + Uniwind | Privy auth instead of, or alongside, MWA |
+| `sample-expo-kit-privy` | Kit + Privy + Uniwind | Privy auth instead of, or alongside, MWA |
 | `expo-web3js-wallet` | web3.js + MWA | Legacy wallet app |
 | `expo-web3js-paper` | web3.js + RN Paper | Legacy, Material UI |
 | `expo-web3js-minimal` | web3.js | Legacy bare starting point |
