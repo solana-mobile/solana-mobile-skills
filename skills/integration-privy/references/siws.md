@@ -61,7 +61,7 @@ This is where the integration goes wrong, so trace the types once:
 Use it rather than `btoa(String.fromCharCode(...bytes))`, which throws
 `RangeError: Maximum call stack size exceeded` on payloads of any size.
 
-Do not slice the signed payload down to its trailing 64 bytes. Both the `expo-kit-privy`
+Do not slice the signed payload down to its trailing 64 bytes. Both the `sample-expo-kit-privy`
 template and Privy's own MWA recipe pass the whole thing base64-encoded, and that is what
 Privy's verifier expects.
 
